@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 3, "column": 0}, "map": {"version":3,"sources":[],"names":[],"mappings":"","debugId":null}},
+    {"offset": {"line": 15, "column": 0}, "map": {"version":3,"sources":["file:///C:/Users/hasan/capstone/app/page.tsx"],"sourcesContent":["import StocksTable from \"../components/StocksTable\";\n\nexport default function Home() {\n  const rows = [\n    { id: \"1\", ticker: \"ACME\", companyName: \"Acme Corp\", volume: 1200000, price: { last: 42.5, open: 41.9, high: 43.2, low: 41.7 } },\n    { id: \"2\", ticker: \"BETA\", companyName: \"Beta Ltd\", volume: 830000,  price: { last: 10.12, open: 10.01, high: 10.32, low: 9.98 } },\n  ];\n  return (\n    <main style={{ padding: 24 }}>\n      <h1>Stocks Dashboard</h1>\n      <StocksTable rows={rows} order={{ by: \"ticker\", dir: \"asc\" }} />\n    </main>\n  );\n}\n"],"names":[],"mappings":";;;;;;;;;;;;AAEe,SAAS;IACtB,MAAM,OAAO;QACX;YAAE,IAAI;YAAK,QAAQ;YAAQ,aAAa;YAAa,QAAQ;YAAS,OAAO;gBAAE,MAAM;gBAAM,MAAM;gBAAM,MAAM;gBAAM,KAAK;YAAK;QAAE;QAC/H;YAAE,IAAI;YAAK,QAAQ;YAAQ,aAAa;YAAY,QAAQ;YAAS,OAAO;gBAAE,MAAM;gBAAO,MAAM;gBAAO,MAAM;gBAAO,KAAK;YAAK;QAAE;KAClI;IACD,qBACE,0PAAC;QAAK,OAAO;YAAE,SAAS;QAAG;;0BACzB,0PAAC;0BAAG;;;;;;0BACJ,0PAAC;gBAAY,MAAM;gBAAM,OAAO;oBAAE,IAAI;oBAAU,KAAK;gBAAM;;;;;;;;;;;;AAGjE","debugId":null}}]
+}
