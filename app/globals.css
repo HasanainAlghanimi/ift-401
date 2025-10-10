@@ -438,3 +438,458 @@ img,svg{ display:block; max-width:100%; }
 .badge{ display:inline-block; border:1px solid var(--border); border-radius:999px; padding:2px 10px; font-size:12px; }
 .badge--ok{ background:var(--ok-bg); color:var(--ok-fg); border-color:#a7f3d0; }
 .muted{ color:var(--muted); }
+
+/* --- WATCHLIST: prevent tiny horizontal overflow --- */
+.watchlist {
+  width: 100%;
+  overflow: hidden;              /* was auto; hide the scrollbar entirely */
+  box-sizing: border-box;
+}
+
+.watchlist__row {
+  /* allow columns to shrink instead of forcing overflow */
+  grid-template-columns:
+    90px
+    minmax(0, 120px)             /* Last */
+    minmax(0, 120px)             /* Change */
+    minmax(0, 120px)             /* Volume */
+    minmax(0, 1fr);              /* Sparkline flexes */
+  gap: 10px;
+}
+
+.watchlist__row > * {
+  min-width: 0;                  /* critical: grid children can shrink */
+}
+
+/* keep the sparkline from forcing width */
+.watchlist__spark {
+  justify-self: end;
+  max-width: 140px;
+}
+
+/* Laptops: hide low-priority cols, tighten padding */
+@media (max-width: 1200px) {
+  .watchlist { padding-left: 8px; padding-right: 8px; }
+  .watchlist__row {
+    grid-template-columns: 90px minmax(0, 1fr) minmax(0, 1fr); /* sym, last, chg */
+    gap: 8px;
+  }
+  /* Hide volume and spark */
+  .watchlist__row > *:nth-child(4),
+  .watchlist__row > *:nth-child(5) { display: none; }
+}
+
+/* Tablets: keep it minimal (symbol + last only) */
+@media (max-width: 900px) {
+  .watchlist__row {
+    grid-template-columns: 90px minmax(0, 1fr);
+  }
+  .watchlist__row > *:nth-child(3) { display: none; } /* hide change */
+}
+
+/* ===== Laptop layout fix: keep hero content near the top ===== */
+@media (max-width: 1360px) {
+  /* tighten hero box */
+  .hero {
+    min-height: 86vh;
+    padding: 56px 0 36px;
+  }
+
+  /* stack sooner and reduce gaps */
+  .hero__inner {
+    grid-template-columns: 1fr;   /* copy on top, visuals below */
+    gap: 22px;
+    align-items: start;
+  }
+
+  /* headline not so tall */
+  .hero__title {
+    font-size: clamp(30px, 6.5vw, 52px);
+    line-height: 1.06;
+    margin: 0 0 10px;
+  }
+  .hero__subtitle { margin-bottom: 16px; }
+
+  /* devices: stop pinning to the bottom */
+  .hero__devices {
+    order: 2;
+    min-height: 0;               /* was creating a tall empty zone */
+    align-items: start;          /* was end */
+  }
+  .screen--desktop {
+    width: clamp(320px, 60vw, 520px);
+    height: 300px;
+  }
+  .screen--phone { bottom: 0; }  /* keep the phone snug */
+
+  /* market snapshot: keep visible without pushing down */
+  .watchlist {
+    order: 3;
+    margin-top: 8px;
+    max-width: 680px;
+    width: 100%;
+    align-self: start;
+  }
+}
+
+/* tablets and smaller – a little tighter still */
+@media (max-width: 1024px) {
+  .hero {
+    padding: 48px 0 32px;
+    min-height: 82vh;
+  }
+  .hero__title { font-size: clamp(28px, 7vw, 46px); }
+  .screen--desktop { height: 280px; }
+}
+
+
+/* ============ AUTH LAYOUT ============ */
+.auth {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(1200px 600px at 85% 10%, rgba(255,255,255,0.06), transparent),
+    linear-gradient(180deg, #0D1117 0%, #6f00ff 60%, #0b1020 100%);
+  color: #e5e7eb;
+}
+
+.auth__wrap { width: 100%; padding: 32px 16px; }
+
+.auth__card {
+  max-width: 520px;
+  margin: 0 auto;
+  background: rgba(12, 19, 33, 0.6);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 16px;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.35);
+  padding: 28px;
+  backdrop-filter: blur(8px);
+}
+
+.auth__title {
+  font-family: 'Lora', serif;
+  font-weight: 700;
+  font-size: 32px;
+  letter-spacing: -0.01em;
+  margin: 0 0 6px;
+  color: #fff;
+}
+
+.auth__subtitle { margin: 0 0 18px; color: #cdd5e1; }
+
+.auth__alert {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #fecaca;
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+
+/* ============ FORM ============ */
+.auth__form { display: grid; gap: 14px; }
+
+.field { display: grid; gap: 6px; }
+.fieldrow { display: grid; gap: 14px; grid-template-columns: 1fr 1fr; }
+@media (max-width: 640px) { .fieldrow { grid-template-columns: 1fr; } }
+
+.field__label { font-size: 13px; color: #dbeafe; }
+.field__input {
+  width: 100%;
+  padding: 12px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.16);
+  background: rgba(255,255,255,0.08);
+  color: #fff;
+  outline: none;
+  transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
+}
+.field__input::placeholder { color: rgba(255,255,255,0.55); }
+.field__input:focus { border-color: #b4ff00; box-shadow: 0 0 0 3px rgba(180,255,0,.18); }
+.field__input.is-error { border-color: rgba(239,68,68,.55); }
+
+.field__hint { color: #fecaca; font-size: 12px; }
+
+.check { display: flex; gap: 10px; align-items: center; font-size: 14px; color: #e5e7eb; }
+.check input { width: 16px; height: 16px; }
+
+.auth__submit {
+  width: 100%;
+  background: #b4ff00;
+  border-color: #b4ff00;
+  color: #0b1426;
+  font-weight: 800;
+  border-radius: 12px;
+  padding: 12px 16px;
+}
+.auth__submit:disabled { opacity: 0.7; cursor: not-allowed; }
+
+.auth__foot { text-align: center; color: #cbd5e1; margin: 8px 0 0; }
+.auth__foot a { color: #fff; text-decoration: underline; }
+
+
+/* Make link-buttons in the header look correct */
+.nav .btn {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+  font-weight: 700;
+  border-radius: 12px;
+}
+
+/* Ghost button on dark header (recommended) */
+.nav .btn--ghost {
+  background: transparent;
+  color: #ffffff;
+  border-color: rgba(255,255,255,0.35);
+}
+.nav .btn--ghost:hover {
+  background: rgba(255,255,255,0.10);
+}
+
+/* Primary button stays purple/brand */
+.nav .btn--primary {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #ffffff;
+}
+
+
+/* ========== Stocks table ========== */
+.pillgroup { display: flex; gap: 10px; margin: 6px 0 14px; }
+.pillbtn {
+  padding: 8px 14px; border-radius: 999px; border: 1px solid rgba(255,255,255,.15);
+  background: rgba(255,255,255,.06); color: #e5e7eb; font-weight: 700;
+}
+.pillbtn.is-active { background: #ffffff; color: #111827; border-color: #ffffff; }
+@media (prefers-color-scheme: light) {
+  .pillbtn { background:#f3f4f6; color:#111827; border-color:#e5e7eb; }
+  .pillbtn.is-active { background:#111827; color:#fff; border-color:#111827; }
+}
+
+.table { overflow: hidden; padding: 0; }
+.table__head {
+  display: grid; grid-template-columns: 2.2fr .9fr 1fr 1fr 1.2fr 120px;
+  gap: 10px; padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(0,0,0,.04);
+}
+.table__head button {
+  background: transparent; border: none; font-weight: 700; cursor: pointer;
+  color: #334155; display:flex; align-items:center; gap:6px;
+}
+.sort { font-size: 10px; opacity: .6; }
+
+.table__body { list-style: none; margin: 0; padding: 0; }
+.table .row {
+  display: grid; grid-template-columns: 2.2fr .9fr 1fr 1fr 1.2fr 120px;
+  gap: 10px; padding: 16px;
+  border-top: 1px solid var(--border);
+  align-items: center;
+}
+.table .row:hover { background: rgba(0,0,0,.03); }
+
+.table .name { display: flex; align-items: center; gap: 12px; }
+.table .symbol { color: var(--muted); font-weight: 700; letter-spacing: .3px; }
+.table .num { font-variant-numeric: tabular-nums; }
+.table .num.is-up   { color: #16a34a; font-weight: 700; }
+.table .num.is-down { color: #dc2626; font-weight: 700; }
+
+.btn--sm { padding: 6px 10px; border-radius: 10px; font-size: 14px; }
+
+/* Responsive table */
+@media (max-width: 980px) {
+  .table__head, .table .row {
+    grid-template-columns: 1.6fr .9fr 1fr 1fr 110px; /* hide market cap label on head with empty span */
+  }
+  .table .row > :nth-child(5) { display: none; }   /* hide Market Cap on rows */
+}
+@media (max-width: 720px) {
+  .table__head, .table .row {
+    grid-template-columns: 1.6fr .9fr 1fr 110px;   /* hide change too */
+  }
+  .table__head > :nth-child(4) { display: none; }
+  .table .row  > :nth-child(4) { display: none; }
+}
+
+/* -------- Stocks polish -------- */
+.stocks .pageheader { margin-top: 18px; }
+.stocks__search { width: min(320px, 40vw); }
+
+.pillgroup { display:flex; gap:10px; margin: 6px 0 14px; }
+.pillbtn {
+  padding: 8px 14px; border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.06); color:#e5e7eb; font-weight:700;
+}
+.pillbtn.is-active { background:#fff; color:#111827; border-color:#fff; }
+
+/* Table layout */
+.table { padding:0; overflow:hidden; }
+.table--elev { box-shadow: 0 18px 40px rgba(0,0,0,.18); border-radius:14px; }
+.table__head {
+  display:grid;
+  grid-template-columns: 2.2fr .8fr 1fr 1fr 1.2fr 100px 120px;
+  gap: 8px; padding: 12px 16px;
+  border-bottom:1px solid var(--border);
+  background: rgba(255,255,255,.5);
+  backdrop-filter: blur(8px);
+  position: relative;
+}
+.table__head.is-sticky { position: sticky; top: 64px; z-index: 5; } /* sticks under your header */
+
+.table__head button {
+  background:transparent; border:none; font-weight:800; cursor:pointer;
+  color:#1f2937; display:flex; align-items:center; gap:6px;
+}
+
+.sort {
+  width: 10px; height: 10px; display:inline-block; margin-left: 2px; opacity:.35;
+  background: conic-gradient(from 180deg at 50% 60%, #111 0 50%, transparent 0 100%);
+  mask: polygon(50% 0, 0 100%, 100% 100%);
+}
+.sort.is-asc  { transform: rotate(180deg); opacity:.8; }
+.sort.is-desc { opacity:.8; }
+
+.table__body { list-style:none; margin:0; padding:0; }
+.table .row {
+  display:grid;
+  grid-template-columns: 2.2fr .8fr 1fr 1fr 1.2fr 100px 120px;
+  gap: 8px; padding: 14px 16px; align-items:center;
+  border-top:1px solid var(--border);
+  transition: background .15s ease, transform .05s ease;
+}
+.table .row:nth-child(even) { background: rgba(255,255,255,0.04); }
+.table .row:hover { background: rgba(255,255,255,0.08); }
+
+.table .name { display:flex; align-items:center; gap:12px; }
+.table .name .n { font-weight:800; }
+.table .name .sub { color:#94a3b8; font-size:12px; }
+.avatar {
+  width:30px; height:30px; border-radius:8px;
+  background: linear-gradient(180deg,#6f00ff,#a855f7);
+  color:#fff; display:grid; place-items:center; font-weight:900;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.25);
+}
+
+.table .symbol { color:#6b7280; font-weight:700; letter-spacing:.3px; }
+.table .num { font-variant-numeric: tabular-nums; text-align:right; }
+
+.chip {
+  display:inline-flex; align-items:center; gap:6px;
+  justify-content:flex-end;
+  padding:4px 8px; border-radius:999px; font-weight:800;
+}
+.chip--up   { color:#16a34a; background: rgba(34,197,94,.12); }
+.chip--down { color:#dc2626; background: rgba(239,68,68,.12); }
+.caret { font-size: 10px; line-height: 1; }
+
+.spark { display:block; }
+.spark path { fill:none; stroke: #7dd3fc; stroke-width:2; filter: drop-shadow(0 0 4px rgba(125,211,252,.6)); }
+.sparkcell { display:flex; justify-content:flex-end; }
+
+.row__actions { text-align:right; }
+.btn--sm { padding:6px 10px; border-radius:10px; font-size:14px; }
+
+/* Responsive collapse */
+@media (max-width: 1100px) {
+  .table__head, .table .row {
+    grid-template-columns: 2fr .8fr 1fr 1fr 1fr 110px; /* remove Symbol column */
+  }
+  .table__head > :nth-child(2), .table .row > :nth-child(2) { display: none; }
+}
+@media (max-width: 880px) {
+  .table__head, .table .row {
+    grid-template-columns: 2fr 1fr 1fr 110px; /* keep name, price, today, trade */
+  }
+  .table__head > :nth-child(5), .table .row > :nth-child(5),
+  .table__head > .th--spark,  .table .row > .sparkcell { display: none; } /* hide cap & spark */
+}
+
+/* —— Stocks header copy ——————————————————————————— */
+.stocks__title {
+  margin: 0 0 4px;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #e5e7eb;
+}
+.stocks__sub {
+  margin: 0 0 16px;
+  color: #94a3b8;
+}
+.stocks__search { width: min(340px, 42vw); }
+
+/* —— Transparent table like the reference ————————— */
+.table--bare {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0;
+}
+
+/* sticky header, transparent bar */
+.table--bare .table__head {
+  background: transparent;
+  backdrop-filter: none;
+  color: #cbd5e1;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.12);
+  display: grid;
+  grid-template-columns: 2.2fr .9fr 1fr 1fr 1.2fr 56px;
+  align-items: center;
+}
+.table--bare .table__head.is-sticky { position: sticky; top: 64px; z-index: 3; }
+.table--bare .table__head button {
+  background: transparent; border: 0; padding: 0;
+  color: #a7b0bf; font-weight: 700; cursor: pointer;
+}
+
+/* rows: transparent with thin separators, taller line-height */
+.table--bare .table__body { margin: 0; padding: 0; list-style: none; }
+.table--bare .row {
+  display: grid;
+  grid-template-columns: 2.2fr .9fr 1fr 1fr 1.2fr 56px;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.table--bare .row:hover { background: rgba(255,255,255,0.03); }
+
+.table--bare .name strong { color: #e5e7eb; font-weight: 800; }
+.table--bare .symbol { color: #9aa3b2; font-weight: 700; letter-spacing: .3px; }
+.table--bare .num { text-align: left; font-variant-numeric: tabular-nums; color: #e5e7eb; }
+.table--bare .num.is-up   { color: #22c55e; font-weight: 700; }
+.table--bare .num.is-down { color: #ef4444; font-weight: 700; }
+
+/* round + icon at far right (like the reference) */
+.iconbtn {
+  width: 36px; height: 36px; border-radius: 999px;
+  background: transparent; color: #e5e7eb;
+  border: 1px solid rgba(255,255,255,0.24);
+  font-size: 20px; line-height: 1; display: grid; place-items: center;
+}
+.iconbtn:hover { background: rgba(255,255,255,0.08); }
+
+/* responsive collapse like RH: hide Market Cap first, then Today */
+@media (max-width: 1000px) {
+  .table--bare .table__head,
+  .table--bare .row {
+    grid-template-columns: 2.4fr 1fr 1fr 56px; /* name, price, today, + */
+  }
+  .table--bare .table__head > :nth-child(2), /* Symbol */
+  .table--bare .table__head > :nth-child(5), /* Market Cap */
+  .table--bare .row > :nth-child(2),
+  .table--bare .row > :nth-child(5) { display: none; }
+}
+@media (max-width: 720px) {
+  .table--bare .table__head,
+  .table--bare .row {
+    grid-template-columns: 1fr 1fr 56px; /* name, price, + */
+  }
+  .table--bare .table__head > :nth-child(4), /* Today */
+  .table--bare .row > :nth-child(4) { display: none; }
+}

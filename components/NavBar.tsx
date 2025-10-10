@@ -30,8 +30,12 @@ export default function NavBar() {
         </nav>
 
         <div className="nav__actions">
-          <button className="btn btn--ghost" type="button">Log in</button>
-          <button className="btn btn--primary" type="button">Sign up</button>
+          <Link href="/login" className="btn btn--ghost">
+            Log in
+          </Link>
+          <Link href="/signup" className="btn btn--primary">
+            Sign up
+          </Link>
         </div>
       </div>
     </header>
