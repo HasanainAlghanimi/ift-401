@@ -17,7 +17,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <footer className="footer">
           <div className="container footer__inner">
             <span>© {new Date().getFullYear()} Callisto Inc. </span>
-            <span className="muted">Please give us an A this time 🥺</span>
+            <span className="muted">Callisto.</span>
           </div>
         </footer>
       </body>

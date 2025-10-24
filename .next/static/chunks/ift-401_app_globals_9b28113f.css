@@ -1165,10 +1165,6 @@ img, svg {
   transition: border-color .15s, box-shadow .15s, background .15s;
 }
 
-.field__input::placeholder {
-  color: rgba(255, 255, 255, .55);
-}
-
 .field__input:focus {
   border-color: #b4ff00;
   box-shadow: 0 0 0 3px rgba(180, 255, 0, .18);
@@ -1669,6 +1665,349 @@ img, svg {
   .table--bare .table__head > :nth-child(4), .table--bare .row > :nth-child(4) {
     display: none;
   }
+}
+
+.field__input:focus-visible {
+  border-color: #b4ff00;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(180, 255, 0, .22), inset 0 1px rgba(255, 255, 255, .06);
+}
+
+.field__input:not(.is-error):valid {
+  background: rgba(180, 255, 0, .06);
+  border-color: rgba(180, 255, 0, .55);
+}
+
+@keyframes auth-shake {
+  10%, 90% {
+    transform: translateX(-1px);
+  }
+
+  20%, 80% {
+    transform: translateX(2px);
+  }
+
+  30%, 50%, 70% {
+    transform: translateX(-4px);
+  }
+
+  40%, 60% {
+    transform: translateX(4px);
+  }
+}
+
+.field__input.is-error {
+  background: rgba(239, 68, 68, .08);
+  border-color: rgba(255, 255, 255, .75);
+  animation: .32s auth-shake;
+}
+
+.check input {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background: rgba(255, 255, 255, .06);
+  border: 1px solid rgba(255, 255, 255, .35);
+  border-radius: 6px;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  transition: border-color .15s, background .15s, box-shadow .15s;
+  display: grid;
+}
+
+.check input:focus-visible {
+  border-color: #b4ff00;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(180, 255, 0, .2);
+}
+
+.check input:after {
+  content: "";
+  background: #b4ff00;
+  border-radius: 3px;
+  width: 10px;
+  height: 10px;
+  transition: transform .12s;
+  transform: scale(0);
+  box-shadow: inset 0 0 0 1px rgba(11, 20, 38, .35);
+}
+
+.check input:checked:after {
+  transform: scale(1);
+}
+
+.auth__submit {
+  transition: transform 50ms, filter .15s, box-shadow .15s;
+  position: relative;
+  box-shadow: 0 12px 26px rgba(180, 255, 0, .2);
+}
+
+.auth__submit:hover:not(:disabled) {
+  filter: brightness(.97);
+}
+
+.auth__submit:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.auth__submit:disabled {
+  opacity: .8;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.auth__submit:disabled:after {
+  content: "";
+  border: 2px solid rgba(11, 20, 38, .35);
+  border-top-color: rgba(11, 20, 38, .95);
+  border-radius: 50%;
+  width: 14px;
+  height: 14px;
+  animation: .6s linear infinite auth-spin;
+  position: absolute;
+  top: 50%;
+  right: 14px;
+  transform: translateY(-50%);
+}
+
+@keyframes auth-spin {
+  to {
+    transform: translateY(-50%)rotate(360deg);
+  }
+}
+
+.auth__foot a {
+  color: #fff;
+  text-underline-offset: 3px;
+  text-decoration: underline;
+}
+
+.auth__foot a:hover {
+  opacity: .9;
+}
+
+.auth__card {
+  transition: transform .18s, box-shadow .18s, border-color .18s;
+}
+
+.auth__card:hover {
+  border-color: rgba(255, 255, 255, .18);
+  transform: translateY(-2px);
+  box-shadow: 0 28px 70px rgba(0, 0, 0, .38);
+}
+
+@media (max-width: 420px) {
+  .auth__card {
+    padding: 22px;
+  }
+
+  .auth__title {
+    font-size: 28px;
+  }
+}
+
+.field__input, input[type="text"], input[type="number"], input[type="email"], input[type="password"], textarea, select {
+  color: #e5e7eb;
+  background: rgba(255, 255, 255, .04);
+  border: 1px solid rgba(255, 255, 255, .1);
+  border-radius: 8px;
+  outline: none;
+  padding: 10px 12px;
+  font-size: 15px;
+  font-weight: 500;
+  transition: all .2s;
+}
+
+.field__input:focus, input:focus, textarea:focus, select:focus {
+  background: rgba(255, 255, 255, .08);
+  border-color: #b4ff00;
+  box-shadow: 0 0 0 3px rgba(180, 255, 0, .15);
+}
+
+.field__input::placeholder, input::placeholder, textarea::placeholder {
+  color: rgba(229, 231, 235, .4);
+}
+
+.field__input:disabled {
+  opacity: .6;
+  cursor: not-allowed;
+}
+
+.check input[type="checkbox"] {
+  accent-color: #b4ff00;
+}
+
+.field__label {
+  color: rgba(229, 231, 235, .7);
+  margin-bottom: 4px;
+  font-weight: 600;
+  display: block;
+}
+
+input, textarea, select {
+  transition: all .2s;
+  color: #000 !important;
+  box-shadow: none !important;
+  background: rgba(255, 255, 255, .05) !important;
+  border: 1px solid rgba(255, 255, 255, .15) !important;
+  border-radius: 8px !important;
+  outline: none !important;
+}
+
+input:focus, textarea:focus, select:focus {
+  background: rgba(255, 255, 255, .1) !important;
+  border-color: #b4ff00 !important;
+  box-shadow: 0 0 0 3px rgba(180, 255, 0, .25) !important;
+}
+
+input::placeholder, textarea::placeholder {
+  color: rgba(229, 231, 235, .5) !important;
+}
+
+input:-webkit-autofill {
+  -webkit-text-fill-color: #000 !important;
+  caret-color: #000 !important;
+  background-color: rgba(255, 255, 255, .05) !important;
+  -webkit-box-shadow: inset 0 0 0 1000px rgba(255, 255, 255, .05) !important;
+}
+
+textarea:-webkit-autofill {
+  -webkit-text-fill-color: #000 !important;
+  caret-color: #000 !important;
+  background-color: rgba(255, 255, 255, .05) !important;
+  -webkit-box-shadow: inset 0 0 0 1000px rgba(255, 255, 255, .05) !important;
+}
+
+input[type="number"]::-webkit-inner-spin-button {
+  filter: invert(.6);
+}
+
+input[type="number"]::-webkit-outer-spin-button {
+  filter: invert(.6);
+}
+
+.field__label, label span, label {
+  font-weight: 600;
+  color: rgba(0, 0, 0, .9) !important;
+}
+
+.field__hint {
+  color: rgba(229, 231, 235, .6) !important;
+}
+
+.field__input::placeholder {
+  color: rgba(229, 231, 235, .55) !important;
+}
+
+.field__input:disabled, input:disabled, select:disabled, textarea:disabled {
+  color: rgba(229, 231, 235, .5) !important;
+  background: rgba(255, 255, 255, .03) !important;
+  border-color: rgba(255, 255, 255, .08) !important;
+}
+
+.trade .pillbtn.is-active {
+  color: #111;
+  background: #e5ff00;
+  border-color: #fffb00;
+}
+
+input:disabled, select:disabled, textarea:disabled {
+  cursor: not-allowed;
+  opacity: 1 !important;
+  color: #000 !important;
+  background: rgba(255, 255, 255, .04) !important;
+  border-color: rgba(255, 255, 255, .15) !important;
+}
+
+label, .field__label, .field__label span {
+  font-weight: 600;
+  color: #000 !important;
+}
+
+.trade input, .trade select {
+  color: #000;
+  background: rgba(255, 255, 255, .05);
+  border: 1px solid rgba(255, 255, 255, .1);
+}
+
+.trade input:focus, .trade select:focus {
+  border-color: #b4ff00;
+  box-shadow: 0 0 0 3px rgba(180, 255, 0, .2);
+}
+
+.trade .pillbtn {
+  color: #000;
+}
+
+.portfoliotable {
+  padding: 0;
+  overflow: hidden;
+}
+
+.portfoliotable__head, .portfoliotable__row {
+  grid-template-columns: 1.2fr .8fr 1fr 44px;
+  align-items: center;
+  gap: 10px;
+  display: grid;
+}
+
+.portfoliotable__head {
+  color: #a7b0bf;
+  border-bottom: 1px solid rgba(255, 255, 255, .12);
+  padding: 12px 16px;
+  font-weight: 700;
+}
+
+.portfoliotable__h.left {
+  text-align: left;
+}
+
+.portfoliotable__h.center {
+  text-align: center;
+}
+
+.portfoliotable__body {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.portfoliotable__row {
+  border-bottom: 1px solid rgba(255, 255, 255, .06);
+  padding: 14px 16px;
+}
+
+.portfoliotable__row:last-child {
+  border-bottom: 0;
+}
+
+.portfoliotable__row:hover {
+  background: rgba(255, 255, 255, .04);
+}
+
+.portfoliotable__symbol {
+  color: #919191;
+  font-weight: 800;
+}
+
+.portfoliotable__qty, .portfoliotable__pnl {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.portfoliotable__pnl.is-up {
+  color: #22c55e;
+  font-weight: 700;
+}
+
+.portfoliotable__pnl.is-down {
+  color: #ef4444;
+  font-weight: 700;
+}
+
+.portfoliotable .row__actions {
+  text-align: right;
 }
 
 /*# sourceMappingURL=ift-401_app_globals_9b28113f.css.map*/

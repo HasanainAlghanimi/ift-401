@@ -1,0 +1,23 @@
+{
+  "pages": {
+    "/signin/page": [
+      "static/chunks/65dd8_next_dist_34e17b97._.js",
+      "static/chunks/ift-401_app_favicon_ico_mjs_90e40264._.js",
+      "static/chunks/ift-401_app_globals_9b28113f.css",
+      "static/chunks/ift-401_0ec78e63._.js",
+      "static/chunks/ift-401_app_layout_tsx_94533acf._.js",
+      "static/chunks/65dd8_next_dist_client_components_builtin_global-error_8f5d4194.js",
+      "static/chunks/ift-401_app_signin_page_tsx_d6f2b74e._.js",
+      "static/chunks/ift-401_app_signin_page_tsx_8f5d4194._.js",
+      "static/chunks/[turbopack]_browser_dev_hmr-client_hmr-client_ts_75f06eed._.js",
+      "static/chunks/65dd8_next_dist_compiled_react-dom_3eac3383._.js",
+      "static/chunks/65dd8_next_dist_compiled_next-devtools_index_82835f4e.js",
+      "static/chunks/65dd8_next_dist_compiled_0642620a._.js",
+      "static/chunks/65dd8_next_dist_client_82538c79._.js",
+      "static/chunks/65dd8_next_dist_e2e89eba._.js",
+      "static/chunks/65dd8_@swc_helpers_cjs_5d1e1157._.js",
+      "static/chunks/ift-401_a0ff3932._.js",
+      "static/chunks/turbopack-ift-401_b8db7a60._.js"
+    ]
+  }
+}

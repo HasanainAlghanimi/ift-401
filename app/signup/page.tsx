@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useDemoSession } from '@/lib/useDemoSession';
 
 type FormState = {
   name: string;
@@ -22,7 +23,28 @@ export default function SignUpPage() {
   });
   const [errors, setErrors] = useState<Partial<FormState> & { general?: string }>({});
   const [isLoading, setIsLoading] = useState(false);
+
   const router = useRouter();
+  const { isLoggedIn } = useDemoSession();
+
+  // Local mount + session check to avoid brief flash/redirect loops
+  const [mounted, setMounted] = useState(false);
+  const [hasSession, setHasSession] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+    try {
+      setHasSession(!!localStorage.getItem('demo_session'));
+    } catch {
+      setHasSession(false);
+    }
+  }, []);
+
+  // Redirect away from /signup only after mount & session known
+  useEffect(() => {
+    if (!mounted) return;
+    if (isLoggedIn || hasSession) router.replace('/');
+  }, [mounted, isLoggedIn, hasSession, router]);
 
   const onChange =
     (key: keyof FormState) =>
@@ -46,27 +68,36 @@ export default function SignUpPage() {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
+
     try {
       setIsLoading(true);
 
       // Demo signup (localStorage). Replace with your real API later.
-      const users = JSON.parse(localStorage.getItem('demo_users') || '[]');
+      const users: Array<{ name: string; email: string; createdAt: string }> =
+        JSON.parse(localStorage.getItem('demo_users') || '[]');
       users.push({ name: form.name, email: form.email, createdAt: new Date().toISOString() });
       localStorage.setItem('demo_users', JSON.stringify(users));
 
-      // Optionally set a “session”
+      // Create a "session"
       localStorage.setItem('demo_session', JSON.stringify({ email: form.email }));
 
-      // Simulate network delay
-      await new Promise((r) => setTimeout(r, 600));
+      // Notify NavBar / listeners immediately
+      window.dispatchEvent(new Event('demo-auth-changed'));
 
-      router.push('/'); // go home after sign up
+      // Simulate a tiny network delay
+      await new Promise((r) => setTimeout(r, 250));
+
+      router.replace('/'); // go home after sign up
     } catch {
       setErrors({ general: 'Something went wrong. Please try again.' });
     } finally {
       setIsLoading(false);
     }
   };
+
+  // While mounting / checking session, render nothing to avoid flicker
+  if (!mounted) return null;
+  if (isLoggedIn || hasSession) return null;
 
   return (
     <main className="auth">
@@ -100,7 +131,7 @@ export default function SignUpPage() {
                 type="email"
                 value={form.email}
                 onChange={onChange('email')}
-                placeholder="Jane.Doe@example.com"
+                placeholder="jane.doe@example.com"
                 autoComplete="email"
               />
               {errors.email && <span className="field__hint">{errors.email}</span>}
@@ -142,9 +173,7 @@ export default function SignUpPage() {
               />
               <span>
                 I agree to the Terms and Privacy Policy.
-                {
-                //<Link href="/terms">Terms</Link> and <Link href="/privacy">Privacy Policy</Link>.
-                }
+                {/* <Link href="/terms">Terms</Link> and <Link href="/privacy">Privacy Policy</Link>. */}
               </span>
             </label>
 
@@ -153,7 +182,7 @@ export default function SignUpPage() {
             </button>
 
             <p className="auth__foot">
-              Already have an account? <Link href="/login">Log in</Link>
+              Already have an account? <Link href="/signin">Sign in</Link>
             </p>
           </form>
         </div>

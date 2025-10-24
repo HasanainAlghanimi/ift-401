@@ -121,7 +121,7 @@ export default async function Home() {
   return session ? <AuthedHome /> : <PublicHome />;
 }
 
---------------------------------------------------------------------------- */ 
+--------------------------------------------------------------------------- */  //This is me making a change
 }),
 "[project]/ift-401/app/page.tsx [app-rsc] (ecmascript, Next.js Server Component)", ((__turbopack_context__) => {
 
