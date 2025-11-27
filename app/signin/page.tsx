@@ -4,12 +4,15 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useDemoSession } from '@/lib/useDemoSession';
+import { supabase } from '@/lib/supabaseClient';
 
 type FormState = {
   email: string;
   password: string;
   remember: boolean;
 };
+
+type Role = 'admin' | 'user';
 
 export default function SignInPage() {
   const [form, setForm] = useState<FormState>({ email: '', password: '', remember: true });
@@ -24,8 +27,11 @@ export default function SignInPage() {
   const [hasSession, setHasSession] = useState<boolean | null>(null);
   useEffect(() => {
     setMounted(true);
-    try { setHasSession(!!localStorage.getItem('demo_session')); }
-    catch { setHasSession(false); }
+    try {
+      setHasSession(!!localStorage.getItem('demo_session'));
+    } catch {
+      setHasSession(false);
+    }
   }, []);
 
   const onChange =
@@ -50,20 +56,47 @@ export default function SignInPage() {
 
     try {
       setIsLoading(true);
+      setErrors({});
 
-      const users: Array<{ email: string }> = JSON.parse(localStorage.getItem('demo_users') || '[]');
-      const user = users.find((u) => u.email.toLowerCase() === form.email.toLowerCase());
-      if (!user) {
-        setErrors({ general: 'No account found with that email.' });
+      // 1) Real Supabase login
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: form.email,
+        password: form.password,
+      });
+
+      if (error) {
+        // Supabase will give messages like "Invalid login credentials"
+        setErrors({ general: error.message });
         return;
       }
 
-      localStorage.setItem('demo_session', JSON.stringify({ email: form.email, remember: form.remember }));
+      // 2) Look up this user in your public.users table to get user_type
+      const { data: userRow, error: userRowError } = await supabase
+        .from('users')
+        .select('user_type')
+        .eq('email', form.email)
+        .single();
+
+      let role: Role = 'user';
+      if (!userRowError && userRow?.user_type === 'Admin') {
+        role = 'admin';
+      }
+
+      // 3) Store session (email + role) so useDemoSession and /admin gate can use it
+      localStorage.setItem(
+        'demo_session',
+        JSON.stringify({
+          email: form.email,
+          remember: form.remember,
+          role, // 'admin' or 'user'
+        })
+      );
       window.dispatchEvent(new Event('demo-auth-changed'));
 
-      await new Promise((r) => setTimeout(r, 250));
+      // 4) Logged in successfully, go home
       router.replace('/');
-    } catch {
+    } catch (err) {
+      console.error(err);
       setErrors({ general: 'Something went wrong. Please try again.' });
     } finally {
       setIsLoading(false);
@@ -87,8 +120,12 @@ export default function SignInPage() {
             <h1 className="auth__title">You’re already signed in</h1>
             <p className="auth__subtitle">Want to go back or sign out?</p>
             <div className="auth__form" style={{ display: 'grid', gap: 10 }}>
-              <button className="btn btn--primary" onClick={() => router.replace('/')}>Go home</button>
-              <button className="btn btn--ghost" onClick={handleLogout}>Log out</button>
+              <button className="btn btn--primary" onClick={() => router.replace('/')}>
+                Go home
+              </button>
+              <button className="btn btn--ghost" onClick={handleLogout}>
+                Log out
+              </button>
             </div>
           </div>
         </div>

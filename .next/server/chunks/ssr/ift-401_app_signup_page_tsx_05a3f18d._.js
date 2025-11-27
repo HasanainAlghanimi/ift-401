@@ -10,7 +10,11 @@ var __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2
 var __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/ift-401/node_modules/next/dist/server/route-modules/app-page/vendored/ssr/react.js [app-ssr] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$client$2f$app$2d$dir$2f$link$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/ift-401/node_modules/next/dist/client/app-dir/link.js [app-ssr] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$navigation$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/ift-401/node_modules/next/navigation.js [app-ssr] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$lib$2f$useDemoSession$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/ift-401/lib/useDemoSession.ts [app-ssr] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$lib$2f$supabaseClient$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/ift-401/lib/supabaseClient.ts [app-ssr] (ecmascript)");
 'use client';
+;
+;
 ;
 ;
 ;
@@ -21,11 +25,32 @@ function SignUpPage() {
         email: '',
         password: '',
         confirm: '',
-        agree: false
+        agree: false,
+        accountType: 'customer'
     });
     const [errors, setErrors] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])({});
     const [isLoading, setIsLoading] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])(false);
     const router = (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$navigation$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useRouter"])();
+    const { isLoggedIn } = (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$lib$2f$useDemoSession$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useDemoSession"])();
+    const [mounted, setMounted] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])(false);
+    const [hasSession, setHasSession] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])(null);
+    (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useEffect"])(()=>{
+        setMounted(true);
+        try {
+            setHasSession(!!localStorage.getItem('demo_session'));
+        } catch  {
+            setHasSession(false);
+        }
+    }, []);
+    (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useEffect"])(()=>{
+        if (!mounted) return;
+        if (isLoggedIn || hasSession) router.replace('/');
+    }, [
+        mounted,
+        isLoggedIn,
+        hasSession,
+        router
+    ]);
     const onChange = (key)=>(e)=>{
             const value = key === 'agree' ? e.target.checked : e.target.value;
             setForm((f)=>({
@@ -38,6 +63,7 @@ function SignUpPage() {
                     general: undefined
                 }));
         };
+    // -------------------- Validation --------------------
     const validate = ()=>{
         const next = {};
         if (!form.name.trim()) next.name = 'Name is required';
@@ -48,26 +74,45 @@ function SignUpPage() {
         setErrors(next);
         return Object.keys(next).length === 0;
     };
+    // -------------------- Submit --------------------
     const onSubmit = async (e)=>{
         e.preventDefault();
         if (!validate()) return;
         try {
             setIsLoading(true);
-            // Demo signup (localStorage). Replace with your real API later.
-            const users = JSON.parse(localStorage.getItem('demo_users') || '[]');
-            users.push({
-                name: form.name,
+            setErrors({});
+            const { data, error } = await __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$lib$2f$supabaseClient$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["supabase"].auth.signUp({
                 email: form.email,
-                createdAt: new Date().toISOString()
+                password: form.password
             });
-            localStorage.setItem('demo_users', JSON.stringify(users));
-            // Optionally set a “session”
+            if (error) {
+                setErrors({
+                    general: error.message
+                });
+                return;
+            }
+            const userId = data.user?.id;
+            if (userId) {
+                await fetch('/api/account/create', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        userId,
+                        name: form.name,
+                        email: form.email,
+                        accountType: form.accountType
+                    })
+                });
+            }
             localStorage.setItem('demo_session', JSON.stringify({
-                email: form.email
+                email: form.email,
+                role: form.accountType
             }));
-            // Simulate network delay
-            await new Promise((r)=>setTimeout(r, 600));
-            router.push('/'); // go home after sign up
+            window.dispatchEvent(new Event('demo-auth-changed'));
+            await new Promise((r)=>setTimeout(r, 250));
+            router.replace('/');
         } catch  {
             setErrors({
                 general: 'Something went wrong. Please try again.'
@@ -75,14 +120,9 @@ function SignUpPage() {
         } finally{
             setIsLoading(false);
         }
-        localStorage.setItem('demo_session', JSON.stringify({
-            email: form.email
-        }));
-        // 👇 Add this line
-        window.dispatchEvent(new Event("demo-auth-changed"));
-        // then redirect
-        router.replace("/");
     };
+    if (!mounted) return null;
+    if (isLoggedIn || hasSession) return null;
     return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("main", {
         className: "auth",
         children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -95,7 +135,7 @@ function SignUpPage() {
                         children: "Create your account"
                     }, void 0, false, {
                         fileName: "[project]/ift-401/app/signup/page.tsx",
-                        lineNumber: 83,
+                        lineNumber: 138,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -103,7 +143,7 @@ function SignUpPage() {
                         children: "Trade faster than Robinhood. No fees. No risk."
                     }, void 0, false, {
                         fileName: "[project]/ift-401/app/signup/page.tsx",
-                        lineNumber: 84,
+                        lineNumber: 139,
                         columnNumber: 11
                     }, this),
                     errors.general && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -111,8 +151,8 @@ function SignUpPage() {
                         children: errors.general
                     }, void 0, false, {
                         fileName: "[project]/ift-401/app/signup/page.tsx",
-                        lineNumber: 88,
-                        columnNumber: 30
+                        lineNumber: 144,
+                        columnNumber: 13
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("form", {
                         onSubmit: onSubmit,
@@ -126,7 +166,7 @@ function SignUpPage() {
                                         children: "Full name"
                                     }, void 0, false, {
                                         fileName: "[project]/ift-401/app/signup/page.tsx",
-                                        lineNumber: 92,
+                                        lineNumber: 150,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
@@ -134,11 +174,10 @@ function SignUpPage() {
                                         type: "text",
                                         value: form.name,
                                         onChange: onChange('name'),
-                                        placeholder: "Jane Doe",
-                                        autoComplete: "name"
+                                        placeholder: "Jane Doe"
                                     }, void 0, false, {
                                         fileName: "[project]/ift-401/app/signup/page.tsx",
-                                        lineNumber: 93,
+                                        lineNumber: 151,
                                         columnNumber: 15
                                     }, this),
                                     errors.name && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -146,13 +185,13 @@ function SignUpPage() {
                                         children: errors.name
                                     }, void 0, false, {
                                         fileName: "[project]/ift-401/app/signup/page.tsx",
-                                        lineNumber: 101,
-                                        columnNumber: 31
+                                        lineNumber: 161,
+                                        columnNumber: 17
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/ift-401/app/signup/page.tsx",
-                                lineNumber: 91,
+                                lineNumber: 149,
                                 columnNumber: 13
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("label", {
@@ -163,7 +202,7 @@ function SignUpPage() {
                                         children: "Email"
                                     }, void 0, false, {
                                         fileName: "[project]/ift-401/app/signup/page.tsx",
-                                        lineNumber: 105,
+                                        lineNumber: 167,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
@@ -171,11 +210,10 @@ function SignUpPage() {
                                         type: "email",
                                         value: form.email,
                                         onChange: onChange('email'),
-                                        placeholder: "Jane.Doe@example.com",
-                                        autoComplete: "email"
+                                        placeholder: "jane@example.com"
                                     }, void 0, false, {
                                         fileName: "[project]/ift-401/app/signup/page.tsx",
-                                        lineNumber: 106,
+                                        lineNumber: 168,
                                         columnNumber: 15
                                     }, this),
                                     errors.email && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -183,13 +221,60 @@ function SignUpPage() {
                                         children: errors.email
                                     }, void 0, false, {
                                         fileName: "[project]/ift-401/app/signup/page.tsx",
-                                        lineNumber: 114,
-                                        columnNumber: 32
+                                        lineNumber: 178,
+                                        columnNumber: 17
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/ift-401/app/signup/page.tsx",
-                                lineNumber: 104,
+                                lineNumber: 166,
+                                columnNumber: 13
+                            }, this),
+                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("label", {
+                                className: "field",
+                                children: [
+                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                                        className: "field__label",
+                                        children: "Account Type"
+                                    }, void 0, false, {
+                                        fileName: "[project]/ift-401/app/signup/page.tsx",
+                                        lineNumber: 184,
+                                        columnNumber: 15
+                                    }, this),
+                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("select", {
+                                        className: "field__input",
+                                        value: form.accountType,
+                                        onChange: (e)=>setForm((f)=>({
+                                                    ...f,
+                                                    accountType: e.target.value
+                                                })),
+                                        children: [
+                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("option", {
+                                                value: "customer",
+                                                children: "Customer"
+                                            }, void 0, false, {
+                                                fileName: "[project]/ift-401/app/signup/page.tsx",
+                                                lineNumber: 195,
+                                                columnNumber: 17
+                                            }, this),
+                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("option", {
+                                                value: "admin",
+                                                children: "Admin"
+                                            }, void 0, false, {
+                                                fileName: "[project]/ift-401/app/signup/page.tsx",
+                                                lineNumber: 196,
+                                                columnNumber: 17
+                                            }, this)
+                                        ]
+                                    }, void 0, true, {
+                                        fileName: "[project]/ift-401/app/signup/page.tsx",
+                                        lineNumber: 185,
+                                        columnNumber: 15
+                                    }, this)
+                                ]
+                            }, void 0, true, {
+                                fileName: "[project]/ift-401/app/signup/page.tsx",
+                                lineNumber: 183,
                                 columnNumber: 13
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -203,7 +288,7 @@ function SignUpPage() {
                                                 children: "Password"
                                             }, void 0, false, {
                                                 fileName: "[project]/ift-401/app/signup/page.tsx",
-                                                lineNumber: 119,
+                                                lineNumber: 203,
                                                 columnNumber: 17
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
@@ -211,25 +296,16 @@ function SignUpPage() {
                                                 type: "password",
                                                 value: form.password,
                                                 onChange: onChange('password'),
-                                                placeholder: "••••••••",
-                                                autoComplete: "new-password"
+                                                placeholder: "••••••••"
                                             }, void 0, false, {
                                                 fileName: "[project]/ift-401/app/signup/page.tsx",
-                                                lineNumber: 120,
+                                                lineNumber: 204,
                                                 columnNumber: 17
-                                            }, this),
-                                            errors.password && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
-                                                className: "field__hint",
-                                                children: errors.password
-                                            }, void 0, false, {
-                                                fileName: "[project]/ift-401/app/signup/page.tsx",
-                                                lineNumber: 128,
-                                                columnNumber: 37
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/ift-401/app/signup/page.tsx",
-                                        lineNumber: 118,
+                                        lineNumber: 202,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("label", {
@@ -240,7 +316,7 @@ function SignUpPage() {
                                                 children: "Confirm password"
                                             }, void 0, false, {
                                                 fileName: "[project]/ift-401/app/signup/page.tsx",
-                                                lineNumber: 132,
+                                                lineNumber: 216,
                                                 columnNumber: 17
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
@@ -248,11 +324,10 @@ function SignUpPage() {
                                                 type: "password",
                                                 value: form.confirm,
                                                 onChange: onChange('confirm'),
-                                                placeholder: "••••••••",
-                                                autoComplete: "new-password"
+                                                placeholder: "••••••••"
                                             }, void 0, false, {
                                                 fileName: "[project]/ift-401/app/signup/page.tsx",
-                                                lineNumber: 133,
+                                                lineNumber: 217,
                                                 columnNumber: 17
                                             }, this),
                                             errors.confirm && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -260,19 +335,19 @@ function SignUpPage() {
                                                 children: errors.confirm
                                             }, void 0, false, {
                                                 fileName: "[project]/ift-401/app/signup/page.tsx",
-                                                lineNumber: 141,
-                                                columnNumber: 36
+                                                lineNumber: 227,
+                                                columnNumber: 19
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/ift-401/app/signup/page.tsx",
-                                        lineNumber: 131,
+                                        lineNumber: 215,
                                         columnNumber: 15
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/ift-401/app/signup/page.tsx",
-                                lineNumber: 117,
+                                lineNumber: 201,
                                 columnNumber: 13
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("label", {
@@ -284,20 +359,20 @@ function SignUpPage() {
                                         onChange: onChange('agree')
                                     }, void 0, false, {
                                         fileName: "[project]/ift-401/app/signup/page.tsx",
-                                        lineNumber: 146,
+                                        lineNumber: 234,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                                         children: "I agree to the Terms and Privacy Policy."
                                     }, void 0, false, {
                                         fileName: "[project]/ift-401/app/signup/page.tsx",
-                                        lineNumber: 151,
+                                        lineNumber: 239,
                                         columnNumber: 15
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/ift-401/app/signup/page.tsx",
-                                lineNumber: 145,
+                                lineNumber: 233,
                                 columnNumber: 13
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -306,47 +381,48 @@ function SignUpPage() {
                                 children: isLoading ? 'Creating account…' : 'Sign up'
                             }, void 0, false, {
                                 fileName: "[project]/ift-401/app/signup/page.tsx",
-                                lineNumber: 159,
+                                lineNumber: 243,
                                 columnNumber: 13
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
                                 className: "auth__foot",
                                 children: [
-                                    "Already have an account? ",
+                                    "Already have an account?",
+                                    ' ',
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$client$2f$app$2d$dir$2f$link$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["default"], {
-                                        href: "/login",
-                                        children: "Log in"
+                                        href: "/signin",
+                                        children: "Sign in"
                                     }, void 0, false, {
                                         fileName: "[project]/ift-401/app/signup/page.tsx",
-                                        lineNumber: 164,
-                                        columnNumber: 40
+                                        lineNumber: 252,
+                                        columnNumber: 15
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/ift-401/app/signup/page.tsx",
-                                lineNumber: 163,
+                                lineNumber: 250,
                                 columnNumber: 13
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/ift-401/app/signup/page.tsx",
-                        lineNumber: 90,
+                        lineNumber: 147,
                         columnNumber: 11
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/ift-401/app/signup/page.tsx",
-                lineNumber: 82,
+                lineNumber: 137,
                 columnNumber: 9
             }, this)
         }, void 0, false, {
             fileName: "[project]/ift-401/app/signup/page.tsx",
-            lineNumber: 81,
+            lineNumber: 136,
             columnNumber: 7
         }, this)
     }, void 0, false, {
         fileName: "[project]/ift-401/app/signup/page.tsx",
-        lineNumber: 80,
+        lineNumber: 135,
         columnNumber: 5
     }, this);
 }

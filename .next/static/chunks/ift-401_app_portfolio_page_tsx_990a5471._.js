@@ -9,94 +9,148 @@ __turbopack_context__.s([
 var __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/ift-401/node_modules/next/dist/compiled/react/jsx-dev-runtime.js [app-client] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/ift-401/node_modules/next/dist/compiled/react/index.js [app-client] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$navigation$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/ift-401/node_modules/next/navigation.js [app-client] (ecmascript)");
-var __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$lib$2f$useDemoSession$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/ift-401/lib/useDemoSession.ts [app-client] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$lib$2f$supabaseClient$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/ift-401/lib/supabaseClient.ts [app-client] (ecmascript)");
 ;
 var _s = __turbopack_context__.k.signature();
 'use client';
 ;
 ;
 ;
-const STARTING_CASH = 100_000;
-// helpers
-function readJSON(key, fallback) {
-    try {
-        var _JSON_parse;
-        return (_JSON_parse = JSON.parse(localStorage.getItem(key) || 'null')) !== null && _JSON_parse !== void 0 ? _JSON_parse : fallback;
-    } catch (e) {
-        return fallback;
-    }
-}
-function ensurePortfolio() {
-    const p = readJSON('demo_portfolio', {
-        cash: STARTING_CASH,
-        positions: []
-    });
-    if (typeof p.cash !== 'number' || !Array.isArray(p.positions)) return {
-        cash: STARTING_CASH,
-        positions: []
-    };
-    return p;
-}
-function getQuote(symbol) {
-    const s = symbol || 'AAPL';
-    const seed = [
-        ...s
-    ].reduce((a, c)=>a + c.charCodeAt(0), 0);
-    const base = 50 + seed % 400;
-    const jitter = Date.now() / 1000 % 10;
-    return Math.round((base + jitter) * 100) / 100;
-}
 const money = (n)=>"$".concat(n.toLocaleString(undefined, {
         maximumFractionDigits: 2
     }));
+// helper: get current account_id from demo_session -> users -> account
+async function resolveAccountId() {
+    try {
+        const raw = localStorage.getItem('demo_session');
+        if (!raw) return null;
+        const obj = JSON.parse(raw);
+        const email = typeof (obj === null || obj === void 0 ? void 0 : obj.email) === 'string' ? obj.email : null;
+        if (!email) return null;
+        // 1) user_id from users by email
+        const { data: userRow, error: userErr } = await __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$lib$2f$supabaseClient$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["supabase"].from('users').select('user_id').eq('email', email).maybeSingle();
+        if (userErr || !userRow) {
+            console.error('resolveAccountId: user lookup failed', userErr);
+            return null;
+        }
+        const userId = userRow.user_id;
+        // 2) account_id from account by user_id
+        const { data: acctRow, error: acctErr } = await __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$lib$2f$supabaseClient$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["supabase"].from('account').select('account_id').eq('user_id', userId).maybeSingle();
+        if (acctErr || !acctRow) {
+            console.error('resolveAccountId: account lookup failed', acctErr);
+            return null;
+        }
+        return acctRow.account_id;
+    } catch (err) {
+        console.error('resolveAccountId error', err);
+        return null;
+    }
+}
 function PortfolioSimplePage() {
     _s();
     const router = (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$navigation$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useRouter"])();
-    const { isLoggedIn } = (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$lib$2f$useDemoSession$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useDemoSession"])();
-    // mount/auth gates first (avoid hook-order issues)
     const [mounted, setMounted] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(false);
-    const [hasSession, setHasSession] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(null);
+    const [loading, setLoading] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(true);
+    const [loadError, setLoadError] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(null);
+    const [rows, setRows] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])([]);
     (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useEffect"])({
         "PortfolioSimplePage.useEffect": ()=>{
             setMounted(true);
-            try {
-                setHasSession(!!localStorage.getItem('demo_session'));
-            } catch (e) {
-                setHasSession(false);
-            }
         }
     }["PortfolioSimplePage.useEffect"], []);
-    const authed = isLoggedIn || !!hasSession;
-    // data
-    const [portfolio, setPortfolio] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])({
-        cash: STARTING_CASH,
-        positions: []
-    });
     (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useEffect"])({
         "PortfolioSimplePage.useEffect": ()=>{
             if (!mounted) return;
-            setPortfolio(ensurePortfolio());
+            const init = {
+                "PortfolioSimplePage.useEffect.init": async ()=>{
+                    setLoading(true);
+                    setLoadError(null);
+                    const hasSession = !!localStorage.getItem('demo_session');
+                    if (!hasSession) {
+                        router.replace('/signin');
+                        return;
+                    }
+                    const accountId = await resolveAccountId();
+                    if (!accountId) {
+                        console.error('Portfolio: could not determine trading account');
+                        setRows([]);
+                        setLoading(false);
+                        return;
+                    }
+                    // 1) load positions for this account (note average_cost)
+                    const { data: posRows, error: posErr } = await __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$lib$2f$supabaseClient$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["supabase"].from('position').select('position_id, ticker_id, quantity, average_cost').eq('account_id', accountId);
+                    if (posErr) {
+                        console.error('load positions error', posErr);
+                        setLoadError('Failed to load portfolio.');
+                        setLoading(false);
+                        return;
+                    }
+                    const positions = posRows !== null && posRows !== void 0 ? posRows : [];
+                    if (positions.length === 0) {
+                        setRows([]);
+                        setLoading(false);
+                        return;
+                    }
+                    // unique ticker_ids
+                    const tickerIds = Array.from(new Set(positions.map({
+                        "PortfolioSimplePage.useEffect.init.tickerIds": (p)=>p.ticker_id
+                    }["PortfolioSimplePage.useEffect.init.tickerIds"])));
+                    if (tickerIds.length === 0) {
+                        setRows([]);
+                        setLoading(false);
+                        return;
+                    }
+                    // 2) get symbols for those tickers
+                    const { data: tickerRows, error: tickerErr } = await __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$lib$2f$supabaseClient$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["supabase"].from('ticker').select('ticker_id, symbol').in('ticker_id', tickerIds);
+                    if (tickerErr) {
+                        console.error('load tickers error', tickerErr);
+                        setLoadError('Failed to load ticker symbols.');
+                        setLoading(false);
+                        return;
+                    }
+                    const tickerMap = new Map();
+                    (tickerRows !== null && tickerRows !== void 0 ? tickerRows : []).forEach({
+                        "PortfolioSimplePage.useEffect.init": (t)=>{
+                            tickerMap.set(t.ticker_id, t.symbol);
+                        }
+                    }["PortfolioSimplePage.useEffect.init"]);
+                    // 3) latest daily close for each ticker
+                    const priceMap = new Map();
+                    await Promise.all(tickerIds.map({
+                        "PortfolioSimplePage.useEffect.init": async (tid)=>{
+                            const { data, error } = await __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$lib$2f$supabaseClient$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["supabase"].from('pricebar').select('close').eq('ticker_id', tid).eq('time_interval', 'daily').order('bar_date', {
+                                ascending: false
+                            }).order('bar_time', {
+                                ascending: false
+                            }).limit(1).maybeSingle();
+                            if (!error && data && data.close != null) {
+                                priceMap.set(tid, Number(data.close));
+                            }
+                        }
+                    }["PortfolioSimplePage.useEffect.init"]));
+                    const ui = positions.map({
+                        "PortfolioSimplePage.useEffect.init.ui": (p)=>{
+                            var _tickerMap_get;
+                            const symbol = (_tickerMap_get = tickerMap.get(p.ticker_id)) !== null && _tickerMap_get !== void 0 ? _tickerMap_get : '—';
+                            var _priceMap_get;
+                            const mark = (_priceMap_get = priceMap.get(p.ticker_id)) !== null && _priceMap_get !== void 0 ? _priceMap_get : p.average_cost;
+                            const pnl = (mark - p.average_cost) * p.quantity; // <-- use average_cost
+                            return {
+                                symbol,
+                                qty: p.quantity,
+                                pnl
+                            };
+                        }
+                    }["PortfolioSimplePage.useEffect.init.ui"]);
+                    setRows(ui);
+                    setLoading(false);
+                }
+            }["PortfolioSimplePage.useEffect.init"];
+            void init();
         }
     }["PortfolioSimplePage.useEffect"], [
-        mounted
-    ]);
-    // compute unrealized P/L per position (simple mark from getQuote)
-    const rows = (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useMemo"])({
-        "PortfolioSimplePage.useMemo[rows]": ()=>{
-            return portfolio.positions.map({
-                "PortfolioSimplePage.useMemo[rows]": (p)=>{
-                    const mark = getQuote(p.symbol);
-                    const pnl = (mark - p.avgPrice) * p.qty;
-                    return {
-                        symbol: p.symbol,
-                        qty: p.qty,
-                        pnl
-                    };
-                }
-            }["PortfolioSimplePage.useMemo[rows]"]);
-        }
-    }["PortfolioSimplePage.useMemo[rows]"], [
-        portfolio.positions
+        mounted,
+        router
     ]);
     const totalPnL = (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useMemo"])({
         "PortfolioSimplePage.useMemo[totalPnL]": ()=>rows.reduce({
@@ -105,18 +159,7 @@ function PortfolioSimplePage() {
     }["PortfolioSimplePage.useMemo[totalPnL]"], [
         rows
     ]);
-    // redirect if not authed once known
-    (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useEffect"])({
-        "PortfolioSimplePage.useEffect": ()=>{
-            if (!mounted) return;
-            if (!authed) router.replace('/signin');
-        }
-    }["PortfolioSimplePage.useEffect"], [
-        mounted,
-        authed,
-        router
-    ]);
-    if (!mounted || !authed) return null;
+    if (!mounted) return null;
     return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("main", {
         className: "container",
         style: {
@@ -134,7 +177,7 @@ function PortfolioSimplePage() {
                                 children: "Portfolio"
                             }, void 0, false, {
                                 fileName: "[project]/ift-401/app/portfolio/page.tsx",
-                                lineNumber: 76,
+                                lineNumber: 203,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -142,13 +185,13 @@ function PortfolioSimplePage() {
                                 children: "Your current holdings & unrealized P/L."
                             }, void 0, false, {
                                 fileName: "[project]/ift-401/app/portfolio/page.tsx",
-                                lineNumber: 77,
+                                lineNumber: 204,
                                 columnNumber: 11
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/ift-401/app/portfolio/page.tsx",
-                        lineNumber: 75,
+                        lineNumber: 202,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -165,27 +208,40 @@ function PortfolioSimplePage() {
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/ift-401/app/portfolio/page.tsx",
-                                    lineNumber: 82,
+                                    lineNumber: 211,
                                     columnNumber: 13
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/ift-401/app/portfolio/page.tsx",
-                            lineNumber: 80,
+                            lineNumber: 209,
                             columnNumber: 11
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/ift-401/app/portfolio/page.tsx",
-                        lineNumber: 79,
+                        lineNumber: 208,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/ift-401/app/portfolio/page.tsx",
-                lineNumber: 74,
+                lineNumber: 201,
                 columnNumber: 7
             }, this),
-            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("section", {
+            loading ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
+                children: "Loading portfolio…"
+            }, void 0, false, {
+                fileName: "[project]/ift-401/app/portfolio/page.tsx",
+                lineNumber: 220,
+                columnNumber: 9
+            }, this) : loadError ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
+                className: "trade__alert is-error",
+                children: loadError
+            }, void 0, false, {
+                fileName: "[project]/ift-401/app/portfolio/page.tsx",
+                lineNumber: 222,
+                columnNumber: 9
+            }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("section", {
                 className: "card portfoliotable",
                 children: [
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -196,39 +252,58 @@ function PortfolioSimplePage() {
                                 children: "Symbol"
                             }, void 0, false, {
                                 fileName: "[project]/ift-401/app/portfolio/page.tsx",
-                                lineNumber: 92,
-                                columnNumber: 5
+                                lineNumber: 226,
+                                columnNumber: 13
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                 className: "portfoliotable__h center",
                                 children: "Qty"
                             }, void 0, false, {
                                 fileName: "[project]/ift-401/app/portfolio/page.tsx",
-                                lineNumber: 93,
-                                columnNumber: 5
+                                lineNumber: 227,
+                                columnNumber: 13
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                 className: "portfoliotable__h center",
                                 children: "Unrealized P/L"
                             }, void 0, false, {
                                 fileName: "[project]/ift-401/app/portfolio/page.tsx",
-                                lineNumber: 94,
-                                columnNumber: 5
+                                lineNumber: 228,
+                                columnNumber: 13
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {}, void 0, false, {
                                 fileName: "[project]/ift-401/app/portfolio/page.tsx",
-                                lineNumber: 95,
-                                columnNumber: 5
+                                lineNumber: 229,
+                                columnNumber: 13
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/ift-401/app/portfolio/page.tsx",
-                        lineNumber: 91,
-                        columnNumber: 3
+                        lineNumber: 225,
+                        columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("ul", {
                         className: "portfoliotable__body",
-                        children: rows.map((r)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("li", {
+                        children: rows.length === 0 ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("li", {
+                            className: "portfoliotable__row",
+                            children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                className: "muted",
+                                style: {
+                                    padding: 12,
+                                    gridColumn: '1 / -1',
+                                    textAlign: 'center'
+                                },
+                                children: "No positions yet."
+                            }, void 0, false, {
+                                fileName: "[project]/ift-401/app/portfolio/page.tsx",
+                                lineNumber: 235,
+                                columnNumber: 17
+                            }, this)
+                        }, void 0, false, {
+                            fileName: "[project]/ift-401/app/portfolio/page.tsx",
+                            lineNumber: 234,
+                            columnNumber: 15
+                        }, this) : rows.map((r)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("li", {
                                 className: "portfoliotable__row",
                                 children: [
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -236,16 +311,16 @@ function PortfolioSimplePage() {
                                         children: r.symbol
                                     }, void 0, false, {
                                         fileName: "[project]/ift-401/app/portfolio/page.tsx",
-                                        lineNumber: 102,
-                                        columnNumber: 9
+                                        lineNumber: 249,
+                                        columnNumber: 19
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                         className: "portfoliotable__qty",
                                         children: r.qty
                                     }, void 0, false, {
                                         fileName: "[project]/ift-401/app/portfolio/page.tsx",
-                                        lineNumber: 103,
-                                        columnNumber: 9
+                                        lineNumber: 250,
+                                        columnNumber: 19
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                         className: "portfoliotable__pnl ".concat(r.pnl >= 0 ? 'is-up' : 'is-down'),
@@ -255,8 +330,8 @@ function PortfolioSimplePage() {
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/ift-401/app/portfolio/page.tsx",
-                                        lineNumber: 104,
-                                        columnNumber: 9
+                                        lineNumber: 251,
+                                        columnNumber: 19
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                         className: "row__actions",
@@ -267,42 +342,41 @@ function PortfolioSimplePage() {
                                             children: "+"
                                         }, void 0, false, {
                                             fileName: "[project]/ift-401/app/portfolio/page.tsx",
-                                            lineNumber: 108,
-                                            columnNumber: 11
+                                            lineNumber: 260,
+                                            columnNumber: 21
                                         }, this)
                                     }, void 0, false, {
                                         fileName: "[project]/ift-401/app/portfolio/page.tsx",
-                                        lineNumber: 107,
-                                        columnNumber: 9
+                                        lineNumber: 259,
+                                        columnNumber: 19
                                     }, this)
                                 ]
                             }, r.symbol, true, {
                                 fileName: "[project]/ift-401/app/portfolio/page.tsx",
-                                lineNumber: 101,
-                                columnNumber: 7
+                                lineNumber: 248,
+                                columnNumber: 17
                             }, this))
                     }, void 0, false, {
                         fileName: "[project]/ift-401/app/portfolio/page.tsx",
-                        lineNumber: 99,
-                        columnNumber: 3
+                        lineNumber: 232,
+                        columnNumber: 11
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/ift-401/app/portfolio/page.tsx",
-                lineNumber: 89,
-                columnNumber: 7
+                lineNumber: 224,
+                columnNumber: 9
             }, this)
         ]
     }, void 0, true, {
         fileName: "[project]/ift-401/app/portfolio/page.tsx",
-        lineNumber: 73,
+        lineNumber: 200,
         columnNumber: 5
     }, this);
 }
-_s(PortfolioSimplePage, "Sav+Ap+wLetPuhptyMJe4qWoilA=", false, function() {
+_s(PortfolioSimplePage, "yIi3mSxjwyiNU2W3HdL21JjuCGo=", false, function() {
     return [
-        __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$navigation$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useRouter"],
-        __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$lib$2f$useDemoSession$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useDemoSession"]
+        __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$navigation$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useRouter"]
     ];
 });
 _c = PortfolioSimplePage;

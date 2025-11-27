@@ -11,7 +11,9 @@ var __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2
 var __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$client$2f$app$2d$dir$2f$link$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/ift-401/node_modules/next/dist/client/app-dir/link.js [app-ssr] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$navigation$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/ift-401/node_modules/next/navigation.js [app-ssr] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$lib$2f$useDemoSession$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/ift-401/lib/useDemoSession.ts [app-ssr] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$lib$2f$supabaseClient$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/ift-401/lib/supabaseClient.ts [app-ssr] (ecmascript)");
 'use client';
+;
 ;
 ;
 ;
@@ -62,22 +64,36 @@ function SignInPage() {
         if (!validate()) return;
         try {
             setIsLoading(true);
-            const users = JSON.parse(localStorage.getItem('demo_users') || '[]');
-            const user = users.find((u)=>u.email.toLowerCase() === form.email.toLowerCase());
-            if (!user) {
+            setErrors({});
+            // 1) Real Supabase login
+            const { data, error } = await __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$lib$2f$supabaseClient$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["supabase"].auth.signInWithPassword({
+                email: form.email,
+                password: form.password
+            });
+            if (error) {
+                // Supabase will give messages like "Invalid login credentials"
                 setErrors({
-                    general: 'No account found with that email.'
+                    general: error.message
                 });
                 return;
             }
+            // 2) Look up this user in your public.users table to get user_type
+            const { data: userRow, error: userRowError } = await __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$lib$2f$supabaseClient$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["supabase"].from('users').select('user_type').eq('email', form.email).single();
+            let role = 'user';
+            if (!userRowError && userRow?.user_type === 'Admin') {
+                role = 'admin';
+            }
+            // 3) Store session (email + role) so useDemoSession and /admin gate can use it
             localStorage.setItem('demo_session', JSON.stringify({
                 email: form.email,
-                remember: form.remember
+                remember: form.remember,
+                role
             }));
             window.dispatchEvent(new Event('demo-auth-changed'));
-            await new Promise((r)=>setTimeout(r, 250));
+            // 4) Logged in successfully, go home
             router.replace('/');
-        } catch  {
+        } catch (err) {
+            console.error(err);
             setErrors({
                 general: 'Something went wrong. Please try again.'
             });
@@ -105,7 +121,7 @@ function SignInPage() {
                             children: "You’re already signed in"
                         }, void 0, false, {
                             fileName: "[project]/ift-401/app/signin/page.tsx",
-                            lineNumber: 87,
+                            lineNumber: 120,
                             columnNumber: 13
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -113,7 +129,7 @@ function SignInPage() {
                             children: "Want to go back or sign out?"
                         }, void 0, false, {
                             fileName: "[project]/ift-401/app/signin/page.tsx",
-                            lineNumber: 88,
+                            lineNumber: 121,
                             columnNumber: 13
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -129,7 +145,7 @@ function SignInPage() {
                                     children: "Go home"
                                 }, void 0, false, {
                                     fileName: "[project]/ift-401/app/signin/page.tsx",
-                                    lineNumber: 90,
+                                    lineNumber: 123,
                                     columnNumber: 15
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -138,29 +154,29 @@ function SignInPage() {
                                     children: "Log out"
                                 }, void 0, false, {
                                     fileName: "[project]/ift-401/app/signin/page.tsx",
-                                    lineNumber: 91,
+                                    lineNumber: 126,
                                     columnNumber: 15
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/ift-401/app/signin/page.tsx",
-                            lineNumber: 89,
+                            lineNumber: 122,
                             columnNumber: 13
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/ift-401/app/signin/page.tsx",
-                    lineNumber: 86,
+                    lineNumber: 119,
                     columnNumber: 11
                 }, this)
             }, void 0, false, {
                 fileName: "[project]/ift-401/app/signin/page.tsx",
-                lineNumber: 85,
+                lineNumber: 118,
                 columnNumber: 9
             }, this)
         }, void 0, false, {
             fileName: "[project]/ift-401/app/signin/page.tsx",
-            lineNumber: 84,
+            lineNumber: 117,
             columnNumber: 7
         }, this);
     }
@@ -176,7 +192,7 @@ function SignInPage() {
                         children: "Welcome back"
                     }, void 0, false, {
                         fileName: "[project]/ift-401/app/signin/page.tsx",
-                        lineNumber: 103,
+                        lineNumber: 140,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -184,7 +200,7 @@ function SignInPage() {
                         children: "Sign in to continue trading faster than everyone else."
                     }, void 0, false, {
                         fileName: "[project]/ift-401/app/signin/page.tsx",
-                        lineNumber: 104,
+                        lineNumber: 141,
                         columnNumber: 11
                     }, this),
                     errors.general && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -192,7 +208,7 @@ function SignInPage() {
                         children: errors.general
                     }, void 0, false, {
                         fileName: "[project]/ift-401/app/signin/page.tsx",
-                        lineNumber: 106,
+                        lineNumber: 143,
                         columnNumber: 30
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("form", {
@@ -207,7 +223,7 @@ function SignInPage() {
                                         children: "Email"
                                     }, void 0, false, {
                                         fileName: "[project]/ift-401/app/signin/page.tsx",
-                                        lineNumber: 110,
+                                        lineNumber: 147,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
@@ -219,7 +235,7 @@ function SignInPage() {
                                         autoComplete: "email"
                                     }, void 0, false, {
                                         fileName: "[project]/ift-401/app/signin/page.tsx",
-                                        lineNumber: 111,
+                                        lineNumber: 148,
                                         columnNumber: 15
                                     }, this),
                                     errors.email && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -227,13 +243,13 @@ function SignInPage() {
                                         children: errors.email
                                     }, void 0, false, {
                                         fileName: "[project]/ift-401/app/signin/page.tsx",
-                                        lineNumber: 119,
+                                        lineNumber: 156,
                                         columnNumber: 32
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/ift-401/app/signin/page.tsx",
-                                lineNumber: 109,
+                                lineNumber: 146,
                                 columnNumber: 13
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("label", {
@@ -244,7 +260,7 @@ function SignInPage() {
                                         children: "Password"
                                     }, void 0, false, {
                                         fileName: "[project]/ift-401/app/signin/page.tsx",
-                                        lineNumber: 123,
+                                        lineNumber: 160,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
@@ -256,7 +272,7 @@ function SignInPage() {
                                         autoComplete: "current-password"
                                     }, void 0, false, {
                                         fileName: "[project]/ift-401/app/signin/page.tsx",
-                                        lineNumber: 124,
+                                        lineNumber: 161,
                                         columnNumber: 15
                                     }, this),
                                     errors.password && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -264,13 +280,13 @@ function SignInPage() {
                                         children: errors.password
                                     }, void 0, false, {
                                         fileName: "[project]/ift-401/app/signin/page.tsx",
-                                        lineNumber: 132,
+                                        lineNumber: 169,
                                         columnNumber: 35
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/ift-401/app/signin/page.tsx",
-                                lineNumber: 122,
+                                lineNumber: 159,
                                 columnNumber: 13
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("label", {
@@ -282,20 +298,20 @@ function SignInPage() {
                                         onChange: onChange('remember')
                                     }, void 0, false, {
                                         fileName: "[project]/ift-401/app/signin/page.tsx",
-                                        lineNumber: 136,
+                                        lineNumber: 173,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                                         children: "Remember me"
                                     }, void 0, false, {
                                         fileName: "[project]/ift-401/app/signin/page.tsx",
-                                        lineNumber: 137,
+                                        lineNumber: 174,
                                         columnNumber: 15
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/ift-401/app/signin/page.tsx",
-                                lineNumber: 135,
+                                lineNumber: 172,
                                 columnNumber: 13
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -304,7 +320,7 @@ function SignInPage() {
                                 children: isLoading ? 'Signing in…' : 'Sign in'
                             }, void 0, false, {
                                 fileName: "[project]/ift-401/app/signin/page.tsx",
-                                lineNumber: 140,
+                                lineNumber: 177,
                                 columnNumber: 13
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -316,35 +332,35 @@ function SignInPage() {
                                         children: "Create an account"
                                     }, void 0, false, {
                                         fileName: "[project]/ift-401/app/signin/page.tsx",
-                                        lineNumber: 145,
+                                        lineNumber: 182,
                                         columnNumber: 25
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/ift-401/app/signin/page.tsx",
-                                lineNumber: 144,
+                                lineNumber: 181,
                                 columnNumber: 13
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/ift-401/app/signin/page.tsx",
-                        lineNumber: 108,
+                        lineNumber: 145,
                         columnNumber: 11
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/ift-401/app/signin/page.tsx",
-                lineNumber: 102,
+                lineNumber: 139,
                 columnNumber: 9
             }, this)
         }, void 0, false, {
             fileName: "[project]/ift-401/app/signin/page.tsx",
-            lineNumber: 101,
+            lineNumber: 138,
             columnNumber: 7
         }, this)
     }, void 0, false, {
         fileName: "[project]/ift-401/app/signin/page.tsx",
-        lineNumber: 100,
+        lineNumber: 137,
         columnNumber: 5
     }, this);
 }

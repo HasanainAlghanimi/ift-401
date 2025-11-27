@@ -12,72 +12,6 @@ var __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2
 var _s = __turbopack_context__.k.signature();
 'use client';
 ;
-const DATA = [
-    {
-        name: 'Apple',
-        symbol: 'AAPL',
-        price: 174.22,
-        changePct: 0.84,
-        marketCap: 2.43e12,
-        tradable: true
-    },
-    {
-        name: 'Microsoft',
-        symbol: 'MSFT',
-        price: 415.03,
-        changePct: 0.33,
-        marketCap: 2.27e12,
-        tradable: true
-    },
-    {
-        name: 'Tesla',
-        symbol: 'TSLA',
-        price: 243.50,
-        changePct: 2.11,
-        marketCap: 8.95e11,
-        tradable: true
-    },
-    {
-        name: 'NVIDIA',
-        symbol: 'NVDA',
-        price: 874.15,
-        changePct: -1.12,
-        marketCap: 5.42e11,
-        tradable: true
-    },
-    {
-        name: 'AMD',
-        symbol: 'AMD',
-        price: 121.77,
-        changePct: 0.06,
-        marketCap: 1.96e11,
-        tradable: true
-    },
-    {
-        name: 'Shopify',
-        symbol: 'SHOP',
-        price: 78.42,
-        changePct: -3.29,
-        marketCap: 1.01e11,
-        tradable: true
-    },
-    {
-        name: 'Adobe',
-        symbol: 'ADBE',
-        price: 516.90,
-        changePct: -0.45,
-        marketCap: 2.36e11,
-        tradable: false
-    },
-    {
-        name: 'Coinbase',
-        symbol: 'COIN',
-        price: 232.11,
-        changePct: 1.87,
-        marketCap: 5.78e10,
-        tradable: false
-    }
-];
 const usd = (n)=>n.toLocaleString('en-US', {
         style: 'currency',
         currency: 'USD'
@@ -94,17 +28,42 @@ function StocksPage() {
     const [tab, setTab] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])('tradable');
     const [sortKey, setSortKey] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])('marketCap');
     const [sortDir, setSortDir] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])('desc');
-    const onSort = (key)=>{
+    const [stocks, setStocks] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])([]);
+    const [loading, setLoading] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(true);
+    const [error, setError] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(null);
+    /* --------------------------- Fetch from API --------------------------- */ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useEffect"])({
+        "StocksPage.useEffect": ()=>{
+            const fetchStocks = {
+                "StocksPage.useEffect.fetchStocks": async ()=>{
+                    try {
+                        setLoading(true);
+                        setError(null);
+                        const res = await fetch('/api/stocks');
+                        if (!res.ok) throw new Error("Request failed with status ".concat(res.status));
+                        const data = await res.json();
+                        setStocks(data);
+                    } catch (err) {
+                        console.error(err);
+                        setError(err.message || 'Failed to load stocks');
+                    } finally{
+                        setLoading(false);
+                    }
+                }
+            }["StocksPage.useEffect.fetchStocks"];
+            fetchStocks();
+        }
+    }["StocksPage.useEffect"], []);
+    /* ----------------------------- Sorting ----------------------------- */ const onSort = (key)=>{
         if (key === sortKey) setSortDir((d)=>d === 'asc' ? 'desc' : 'asc');
         else {
             setSortKey(key);
             setSortDir('desc');
         }
     };
-    const list = (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useMemo"])({
+    /* ----------------------------- Filtering ----------------------------- */ const list = (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useMemo"])({
         "StocksPage.useMemo[list]": ()=>{
             const q = query.trim().toLowerCase();
-            const filtered = DATA.filter({
+            const filtered = stocks.filter({
                 "StocksPage.useMemo[list].filtered": (s)=>{
                     const inTab = tab === 'tradable' ? s.tradable : !s.tradable;
                     const inQuery = !q || s.name.toLowerCase().includes(q) || s.symbol.toLowerCase().includes(q);
@@ -119,12 +78,13 @@ function StocksPage() {
             }["StocksPage.useMemo[list]"]);
         }
     }["StocksPage.useMemo[list]"], [
+        stocks,
         query,
         tab,
         sortKey,
         sortDir
     ]);
-    return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("main", {
+    /* ------------------------------ Render ------------------------------ */ return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("main", {
         className: "container stocks",
         children: [
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("header", {
@@ -139,7 +99,7 @@ function StocksPage() {
                                 children: "Explore stocks"
                             }, void 0, false, {
                                 fileName: "[project]/ift-401/app/stocks/page.tsx",
-                                lineNumber: 74,
+                                lineNumber: 117,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -147,13 +107,13 @@ function StocksPage() {
                                 children: "Search by name or symbol, then sort by price, today’s change, or market cap."
                             }, void 0, false, {
                                 fileName: "[project]/ift-401/app/stocks/page.tsx",
-                                lineNumber: 75,
+                                lineNumber: 120,
                                 columnNumber: 11
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/ift-401/app/stocks/page.tsx",
-                        lineNumber: 73,
+                        lineNumber: 116,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
@@ -164,201 +124,229 @@ function StocksPage() {
                         onChange: (e)=>setQuery(e.target.value)
                     }, void 0, false, {
                         fileName: "[project]/ift-401/app/stocks/page.tsx",
-                        lineNumber: 79,
+                        lineNumber: 126,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/ift-401/app/stocks/page.tsx",
-                lineNumber: 72,
+                lineNumber: 115,
                 columnNumber: 7
             }, this),
-            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                role: "tablist",
-                "aria-label": "Tradability filter",
-                className: "pillgroup",
-                children: [
-                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
-                        role: "tab",
-                        "aria-selected": tab === 'tradable',
-                        className: "pillbtn ".concat(tab === 'tradable' ? 'is-active' : ''),
-                        onClick: ()=>setTab('tradable'),
-                        children: "Tradable"
-                    }, void 0, false, {
-                        fileName: "[project]/ift-401/app/stocks/page.tsx",
-                        lineNumber: 90,
-                        columnNumber: 9
-                    }, this),
-                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
-                        role: "tab",
-                        "aria-selected": tab === 'non',
-                        className: "pillbtn ".concat(tab === 'non' ? 'is-active' : ''),
-                        onClick: ()=>setTab('non'),
-                        children: "Non-tradable"
-                    }, void 0, false, {
-                        fileName: "[project]/ift-401/app/stocks/page.tsx",
-                        lineNumber: 98,
-                        columnNumber: 9
-                    }, this)
-                ]
-            }, void 0, true, {
+            loading && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
+                children: "Loading stocks…"
+            }, void 0, false, {
                 fileName: "[project]/ift-401/app/stocks/page.tsx",
-                lineNumber: 89,
-                columnNumber: 7
+                lineNumber: 136,
+                columnNumber: 19
             }, this),
-            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("section", {
-                className: "table table--bare",
+            error && !loading && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
+                style: {
+                    color: 'red'
+                },
+                children: error
+            }, void 0, false, {
+                fileName: "[project]/ift-401/app/stocks/page.tsx",
+                lineNumber: 138,
+                columnNumber: 9
+            }, this),
+            !loading && !error && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Fragment"], {
                 children: [
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                        className: "table__head is-sticky",
+                        role: "tablist",
+                        "aria-label": "Tradability filter",
+                        className: "pillgroup",
                         children: [
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
-                                onClick: ()=>onSort('name'),
-                                children: "Name"
+                                role: "tab",
+                                "aria-selected": tab === 'tradable',
+                                className: "pillbtn ".concat(tab === 'tradable' ? 'is-active' : ''),
+                                onClick: ()=>setTab('tradable'),
+                                children: "Tradable"
                             }, void 0, false, {
                                 fileName: "[project]/ift-401/app/stocks/page.tsx",
-                                lineNumber: 111,
-                                columnNumber: 5
+                                lineNumber: 150,
+                                columnNumber: 13
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
-                                onClick: ()=>onSort('symbol'),
-                                children: "Symbol"
+                                role: "tab",
+                                "aria-selected": tab === 'non',
+                                className: "pillbtn ".concat(tab === 'non' ? 'is-active' : ''),
+                                onClick: ()=>setTab('non'),
+                                children: "Non-tradable"
                             }, void 0, false, {
                                 fileName: "[project]/ift-401/app/stocks/page.tsx",
-                                lineNumber: 112,
-                                columnNumber: 5
-                            }, this),
-                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
-                                onClick: ()=>onSort('price'),
-                                children: "Price"
-                            }, void 0, false, {
-                                fileName: "[project]/ift-401/app/stocks/page.tsx",
-                                lineNumber: 113,
-                                columnNumber: 5
-                            }, this),
-                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
-                                onClick: ()=>onSort('changePct'),
-                                children: "Today"
-                            }, void 0, false, {
-                                fileName: "[project]/ift-401/app/stocks/page.tsx",
-                                lineNumber: 114,
-                                columnNumber: 5
-                            }, this),
-                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
-                                onClick: ()=>onSort('marketCap'),
-                                children: "Market Cap"
-                            }, void 0, false, {
-                                fileName: "[project]/ift-401/app/stocks/page.tsx",
-                                lineNumber: 115,
-                                columnNumber: 5
-                            }, this),
-                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {}, void 0, false, {
-                                fileName: "[project]/ift-401/app/stocks/page.tsx",
-                                lineNumber: 116,
-                                columnNumber: 5
+                                lineNumber: 161,
+                                columnNumber: 13
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/ift-401/app/stocks/page.tsx",
-                        lineNumber: 110,
-                        columnNumber: 3
+                        lineNumber: 145,
+                        columnNumber: 11
                     }, this),
-                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("ul", {
-                        className: "table__body",
-                        children: list.map((s)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("li", {
-                                className: "row",
+                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("section", {
+                        className: "stocks-table",
+                        children: [
+                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                className: "stocks-table__head",
                                 children: [
-                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                        className: "name",
-                                        children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("strong", {
-                                            children: s.name
-                                        }, void 0, false, {
-                                            fileName: "[project]/ift-401/app/stocks/page.tsx",
-                                            lineNumber: 122,
-                                            columnNumber: 31
-                                        }, this)
+                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
+                                        onClick: ()=>onSort('name'),
+                                        className: "stocks-table__headcell",
+                                        children: "Name"
                                     }, void 0, false, {
                                         fileName: "[project]/ift-401/app/stocks/page.tsx",
-                                        lineNumber: 122,
-                                        columnNumber: 9
+                                        lineNumber: 177,
+                                        columnNumber: 15
                                     }, this),
-                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                        className: "symbol",
-                                        children: s.symbol
+                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
+                                        onClick: ()=>onSort('symbol'),
+                                        className: "stocks-table__headcell",
+                                        children: "Symbol"
                                     }, void 0, false, {
                                         fileName: "[project]/ift-401/app/stocks/page.tsx",
-                                        lineNumber: 123,
-                                        columnNumber: 9
+                                        lineNumber: 183,
+                                        columnNumber: 15
                                     }, this),
-                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                        className: "num",
-                                        children: usd(s.price)
+                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
+                                        onClick: ()=>onSort('price'),
+                                        className: "stocks-table__headcell",
+                                        children: "Price"
                                     }, void 0, false, {
                                         fileName: "[project]/ift-401/app/stocks/page.tsx",
-                                        lineNumber: 124,
-                                        columnNumber: 9
+                                        lineNumber: 189,
+                                        columnNumber: 15
                                     }, this),
-                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                        className: "num ".concat(s.changePct >= 0 ? 'is-up' : 'is-down'),
-                                        children: [
-                                            s.changePct >= 0 ? '▲' : '▼',
-                                            " ",
-                                            pctf(s.changePct)
-                                        ]
-                                    }, void 0, true, {
-                                        fileName: "[project]/ift-401/app/stocks/page.tsx",
-                                        lineNumber: 125,
-                                        columnNumber: 9
-                                    }, this),
-                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                        className: "num",
-                                        children: cap(s.marketCap)
+                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
+                                        onClick: ()=>onSort('changePct'),
+                                        className: "stocks-table__headcell",
+                                        children: "Today"
                                     }, void 0, false, {
                                         fileName: "[project]/ift-401/app/stocks/page.tsx",
-                                        lineNumber: 128,
-                                        columnNumber: 9
+                                        lineNumber: 195,
+                                        columnNumber: 15
                                     }, this),
-                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                        className: "row__actions",
-                                        children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
-                                            className: "iconbtn",
-                                            "aria-label": "Add ".concat(s.symbol, " to watchlist"),
-                                            children: "+"
-                                        }, void 0, false, {
-                                            fileName: "[project]/ift-401/app/stocks/page.tsx",
-                                            lineNumber: 130,
-                                            columnNumber: 11
-                                        }, this)
+                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
+                                        onClick: ()=>onSort('marketCap'),
+                                        className: "stocks-table__headcell",
+                                        children: "Market Cap"
                                     }, void 0, false, {
                                         fileName: "[project]/ift-401/app/stocks/page.tsx",
-                                        lineNumber: 129,
-                                        columnNumber: 9
+                                        lineNumber: 201,
+                                        columnNumber: 15
+                                    }, this),
+                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                        className: "stocks-table__headcell"
+                                    }, void 0, false, {
+                                        fileName: "[project]/ift-401/app/stocks/page.tsx",
+                                        lineNumber: 207,
+                                        columnNumber: 15
                                     }, this)
                                 ]
-                            }, s.symbol, true, {
+                            }, void 0, true, {
                                 fileName: "[project]/ift-401/app/stocks/page.tsx",
-                                lineNumber: 121,
-                                columnNumber: 7
-                            }, this))
-                    }, void 0, false, {
+                                lineNumber: 176,
+                                columnNumber: 13
+                            }, this),
+                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                className: "stocks-table__body",
+                                children: list.map((s)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                        className: "stocks-table__row",
+                                        children: [
+                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                                className: "stocks-table__cell stocks-table__cell--name",
+                                                children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("strong", {
+                                                    children: s.name
+                                                }, void 0, false, {
+                                                    fileName: "[project]/ift-401/app/stocks/page.tsx",
+                                                    lineNumber: 218,
+                                                    columnNumber: 21
+                                                }, this)
+                                            }, void 0, false, {
+                                                fileName: "[project]/ift-401/app/stocks/page.tsx",
+                                                lineNumber: 217,
+                                                columnNumber: 19
+                                            }, this),
+                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                                className: "stocks-table__cell stocks-table__cell--symbol",
+                                                children: s.symbol
+                                            }, void 0, false, {
+                                                fileName: "[project]/ift-401/app/stocks/page.tsx",
+                                                lineNumber: 221,
+                                                columnNumber: 19
+                                            }, this),
+                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                                className: "stocks-table__cell stocks-table__cell--num",
+                                                children: usd(s.price)
+                                            }, void 0, false, {
+                                                fileName: "[project]/ift-401/app/stocks/page.tsx",
+                                                lineNumber: 225,
+                                                columnNumber: 19
+                                            }, this),
+                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                                className: "stocks-table__cell stocks-table__cell--num ".concat(s.changePct >= 0 ? 'stocks-table__cell--up' : 'stocks-table__cell--down'),
+                                                children: [
+                                                    s.changePct >= 0 ? '▲' : '▼',
+                                                    ' ',
+                                                    pctf(s.changePct)
+                                                ]
+                                            }, void 0, true, {
+                                                fileName: "[project]/ift-401/app/stocks/page.tsx",
+                                                lineNumber: 229,
+                                                columnNumber: 19
+                                            }, this),
+                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                                className: "stocks-table__cell stocks-table__cell--num",
+                                                children: cap(s.marketCap)
+                                            }, void 0, false, {
+                                                fileName: "[project]/ift-401/app/stocks/page.tsx",
+                                                lineNumber: 240,
+                                                columnNumber: 19
+                                            }, this),
+                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                                className: "stocks-table__cell stocks-table__cell--actions",
+                                                children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
+                                                    className: "iconbtn",
+                                                    "aria-label": "Add ".concat(s.symbol, " to watchlist"),
+                                                    children: "+"
+                                                }, void 0, false, {
+                                                    fileName: "[project]/ift-401/app/stocks/page.tsx",
+                                                    lineNumber: 245,
+                                                    columnNumber: 21
+                                                }, this)
+                                            }, void 0, false, {
+                                                fileName: "[project]/ift-401/app/stocks/page.tsx",
+                                                lineNumber: 244,
+                                                columnNumber: 19
+                                            }, this)
+                                        ]
+                                    }, s.symbol, true, {
+                                        fileName: "[project]/ift-401/app/stocks/page.tsx",
+                                        lineNumber: 213,
+                                        columnNumber: 17
+                                    }, this))
+                            }, void 0, false, {
+                                fileName: "[project]/ift-401/app/stocks/page.tsx",
+                                lineNumber: 211,
+                                columnNumber: 13
+                            }, this)
+                        ]
+                    }, void 0, true, {
                         fileName: "[project]/ift-401/app/stocks/page.tsx",
-                        lineNumber: 119,
-                        columnNumber: 3
+                        lineNumber: 174,
+                        columnNumber: 11
                     }, this)
                 ]
-            }, void 0, true, {
-                fileName: "[project]/ift-401/app/stocks/page.tsx",
-                lineNumber: 109,
-                columnNumber: 1
-            }, this)
+            }, void 0, true)
         ]
     }, void 0, true, {
         fileName: "[project]/ift-401/app/stocks/page.tsx",
-        lineNumber: 70,
+        lineNumber: 113,
         columnNumber: 5
     }, this);
 }
-_s(StocksPage, "RTFnOZDa/QMjHAbqfUfIlPKlguU=");
+_s(StocksPage, "zYrTpNR66KDa7FONrrn1NxcZq78=");
 _c = StocksPage;
 var _c;
 __turbopack_context__.k.register(_c, "StocksPage");

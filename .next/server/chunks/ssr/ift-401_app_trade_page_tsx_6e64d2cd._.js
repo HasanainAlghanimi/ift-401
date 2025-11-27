@@ -10,47 +10,16 @@ var __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2
 var __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/ift-401/node_modules/next/dist/server/route-modules/app-page/vendored/ssr/react.js [app-ssr] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$navigation$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/ift-401/node_modules/next/navigation.js [app-ssr] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$lib$2f$useDemoSession$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/ift-401/lib/useDemoSession.ts [app-ssr] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$lib$2f$supabaseClient$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/ift-401/lib/supabaseClient.ts [app-ssr] (ecmascript)");
 'use client';
 ;
 ;
 ;
 ;
-const STARTING_CASH = 100_000;
-// ——— Quick symbol universe for the dropdown
-const SYMBOLS = [
-    'AAPL',
-    'MSFT',
-    'NVDA',
-    'TSLA',
-    'AMD',
-    'SHOP',
-    'GOOG',
-    'AMZN',
-    'META',
-    'NFLX',
-    'JPM',
-    'BAC',
-    'TSM',
-    'AVGO',
-    'ADBE',
-    'CRM',
-    'INTC',
-    'CSCO',
-    'ORCL',
-    'QCOM',
-    'KO',
-    'PEP',
-    'WMT',
-    'COST',
-    'NKE',
-    'DIS',
-    'MRNA',
-    'PFE',
-    'BABA',
-    'T',
-    'VZ'
-];
-// ——— persist helpers
+;
+const STARTING_CASH = 10_000;
+const ORDER_TYPE = 'MARKET';
+// localStorage helpers
 function readJSON(key, fallback) {
     try {
         return JSON.parse(localStorage.getItem(key) || 'null') ?? fallback;
@@ -66,28 +35,140 @@ function ensurePortfolio() {
         cash: STARTING_CASH,
         positions: []
     });
-    if (typeof p.cash !== 'number' || !Array.isArray(p.positions)) return {
-        cash: STARTING_CASH,
-        positions: []
-    };
+    if (typeof p.cash !== 'number' || !Array.isArray(p.positions)) {
+        return {
+            cash: STARTING_CASH,
+            positions: []
+        };
+    }
     return p;
-}
-function getQuote(symbol) {
-    const s = symbol || 'AAPL';
-    const seed = [
-        ...s
-    ].reduce((a, c)=>a + c.charCodeAt(0), 0);
-    const base = 50 + seed % 400;
-    const jitter = Date.now() / 1000 % 10;
-    return Math.round((base + jitter) * 100) / 100;
 }
 const fmt = (n)=>`$${n.toLocaleString(undefined, {
         maximumFractionDigits: 2
     })}`;
+/** Helpers for market-hours check (America/New_York) */ function getNowInET() {
+    const now = new Date();
+    const fmt = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/New_York',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        weekday: 'short',
+        hour12: false
+    });
+    const parts = fmt.formatToParts(now);
+    const map = {};
+    for (const p of parts){
+        if (p.type !== 'literal') map[p.type] = p.value;
+    }
+    const date = `${map.year}-${map.month}-${map.day}`;
+    const time = `${map.hour}:${map.minute}:${map.second}`;
+    const weekdayLabel = map.weekday; // "Mon", "Tue", ... 
+    const weekdayMap = {
+        Sun: 7,
+        Mon: 1,
+        Tue: 2,
+        Wed: 3,
+        Thu: 4,
+        Fri: 5,
+        Sat: 6
+    };
+    const dayOfWeek = weekdayMap[weekdayLabel] ?? 7;
+    const hour = Number(map.hour);
+    const minute = Number(map.minute);
+    return {
+        date,
+        time,
+        dayOfWeek,
+        hour,
+        minute
+    };
+}
+function timeToMinutes(t) {
+    if (!t) return null;
+    const [h, m, s] = t.split(':').map((x)=>Number(x));
+    if (Number.isNaN(h) || Number.isNaN(m)) return null;
+    return h * 60 + m + (Number.isNaN(s) ? 0 : s / 60);
+}
+/** 🔹 HELPERS TO WRITE TO position TABLE */ async function upsertPositionRow(accountId, tickerId, side, qty, price) {
+    try {
+        // 1) Load any existing position row for this account & ticker
+        const { data: existing, error: posErr } = await __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$lib$2f$supabaseClient$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["supabase"].from('position').select('position_id, quantity, average_cost').eq('account_id', accountId).eq('ticker_id', tickerId).maybeSingle();
+        if (posErr) {
+            console.error('position lookup error:', posErr);
+            return;
+        }
+        const nowIso = new Date().toISOString();
+        // No existing row
+        if (!existing) {
+            if (side === 'SELL') {
+                // Shouldn't really happen because you already validated quantity,
+                // but don't create a negative position.
+                console.warn('SELL with no existing position, skipping position insert');
+                return;
+            }
+            // BUY → insert new position row
+            const { error: insertErr } = await __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$lib$2f$supabaseClient$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["supabase"].from('position').insert({
+                account_id: accountId,
+                ticker_id: tickerId,
+                quantity: qty,
+                average_cost: price,
+                current_value: price * qty,
+                unrealized_pl: 0,
+                realized_pl: 0,
+                last_updated: nowIso
+            });
+            if (insertErr) {
+                console.error('position insert error:', insertErr);
+            }
+            return;
+        }
+        // There *is* an existing row
+        const oldQty = Number(existing.quantity) || 0;
+        const oldCost = Number(existing.average_cost) || 0;
+        let newQty = oldQty;
+        let newAvgCost = oldCost;
+        if (side === 'BUY') {
+            newQty = oldQty + qty;
+            newAvgCost = newQty > 0 ? (oldCost * oldQty + price * qty) / newQty : price;
+        } else {
+            // SELL
+            newQty = oldQty - qty;
+            if (newQty < 0) {
+                console.warn('SELL would result in negative position, skipping update');
+                return;
+            }
+        // keep same avg cost on sell (realized P/L could be tracked separately)
+        }
+        if (newQty === 0) {
+            // Close the position: delete the row
+            const { error: delErr } = await __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$lib$2f$supabaseClient$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["supabase"].from('position').delete().eq('position_id', existing.position_id);
+            if (delErr) {
+                console.error('position delete error:', delErr);
+            }
+            return;
+        }
+        // Update existing row
+        const { error: updateErr } = await __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$lib$2f$supabaseClient$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["supabase"].from('position').update({
+            quantity: newQty,
+            average_cost: newAvgCost,
+            current_value: newQty * price,
+            last_updated: nowIso
+        }).eq('position_id', existing.position_id);
+        if (updateErr) {
+            console.error('position update error:', updateErr);
+        }
+    } catch (e) {
+        console.error('upsertPositionRow unexpected error:', e);
+    }
+}
 function TradePage() {
     const router = (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$navigation$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useRouter"])();
     const { isLoggedIn } = (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$lib$2f$useDemoSession$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useDemoSession"])();
-    // —— auth-check (declare hooks first, no early returns)
+    // auth / mount gates
     const [mounted, setMounted] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])(false);
     const [hasSession, setHasSession] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])(null);
     (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useEffect"])(()=>{
@@ -99,19 +180,29 @@ function TradePage() {
         }
     }, []);
     const authed = isLoggedIn || !!hasSession;
-    // —— ticket state
-    const [symbol, setSymbol] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])('AAPL');
+    // DB state
+    const [stocks, setStocks] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])([]);
+    const [account, setAccount] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])(null);
+    const [loading, setLoading] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])(true);
+    const [loadError, setLoadError] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])(null);
+    // quote
+    const [quote, setQuote] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])(null);
+    const [quoteLoading, setQuoteLoading] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])(false);
+    // ticket state
+    const [symbol, setSymbol] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])('');
     const [qty, setQty] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])(1);
     const [side, setSide] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])('BUY');
-    const [type, setType] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])('MARKET');
-    const [limitPrice, setLimitPrice] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])(0);
     const [message, setMessage] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])('');
-    // —— portfolio / orders
+    // local UI portfolio + orders
     const [portfolio, setPortfolio] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])({
         cash: STARTING_CASH,
         positions: []
     });
     const [orders, setOrders] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])([]);
+    // market-hours / holiday gating
+    const [isClosed, setIsClosed] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])(false);
+    const [marketStatusMsg, setMarketStatusMsg] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])(null);
+    // load local portfolio + orders once mounted
     (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useEffect"])(()=>{
         if (!mounted) return;
         setPortfolio(ensurePortfolio());
@@ -119,7 +210,7 @@ function TradePage() {
     }, [
         mounted
     ]);
-    // redirect only once we know
+    // redirect if not authed
     (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useEffect"])(()=>{
         if (!mounted) return;
         if (!authed) router.replace('/signin');
@@ -128,6 +219,117 @@ function TradePage() {
         authed,
         router
     ]);
+    // load tickers + account for *current user_id*
+    (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useEffect"])(()=>{
+        if (!mounted) return;
+        const init = async ()=>{
+            setLoading(true);
+            setLoadError(null);
+            // 0) read user_id OR email from demo_session in localStorage
+            let demoUserId = null;
+            let sessionEmail = null;
+            try {
+                const raw = localStorage.getItem('demo_session');
+                if (raw) {
+                    const obj = JSON.parse(raw);
+                    // if your login ever stores a numeric user_id, use it directly
+                    if (typeof obj.user_id === 'number') {
+                        demoUserId = obj.user_id;
+                    } else if (typeof obj.id === 'number') {
+                        demoUserId = obj.id;
+                    }
+                    // from your screenshot, you currently have: { email, remember, role }
+                    if (typeof obj.email === 'string') {
+                        sessionEmail = obj.email;
+                    }
+                }
+            } catch  {
+            /* ignore */ }
+            // If we didn't get a numeric user id but we *do* have an email in the session,
+            // resolve user_id from the users table.
+            if (!demoUserId && sessionEmail) {
+                const { data: userRow, error: userErr } = await __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$lib$2f$supabaseClient$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["supabase"].from('users').select('user_id').eq('email', sessionEmail).maybeSingle();
+                if (userErr) {
+                    console.error('Failed to resolve user id from email:', userErr);
+                } else if (userRow && userRow.user_id != null) {
+                    demoUserId = Number(userRow.user_id);
+                }
+            }
+            if (!demoUserId) {
+                setLoadError('Could not determine logged-in user id. Check demo_session and users table.');
+                setLoading(false);
+                return;
+            }
+            // 1) load tickers
+            const { data: tickerRows, error: tickerError } = await __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$lib$2f$supabaseClient$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["supabase"].from('ticker').select('ticker_id, symbol, company_name').eq('is_active', true).order('symbol', {
+                ascending: true
+            });
+            if (tickerError) {
+                console.error(tickerError);
+                setLoadError('Failed to load tickers.');
+            } else if (tickerRows && tickerRows.length > 0) {
+                setStocks(tickerRows);
+                setSymbol((prev)=>prev || tickerRows[0].symbol);
+            } else {
+                setStocks([]);
+                setSymbol('');
+            }
+            // 2) load account row for this user_id
+            const { data: acct, error: acctErr } = await __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$lib$2f$supabaseClient$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["supabase"].from('account').select('account_id, balance').eq('user_id', demoUserId).maybeSingle();
+            if (acctErr || !acct) {
+                console.error(acctErr);
+                setLoadError('Failed to load trading account for this user. Make sure there is an account row with this user_id.');
+                setLoading(false);
+                return;
+            }
+            const acctBalance = Number(acct.balance);
+            setAccount({
+                account_id: acct.account_id,
+                balance: acctBalance
+            });
+            setPortfolio((prev)=>({
+                    ...prev,
+                    cash: acctBalance
+                }));
+            setLoading(false);
+        };
+        void init();
+    }, [
+        mounted
+    ]);
+    // load latest close from pricebar whenever symbol changes
+    (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useEffect"])(()=>{
+        const loadQuote = async ()=>{
+            if (!symbol || stocks.length === 0) {
+                setQuote(null);
+                return;
+            }
+            const stock = stocks.find((st)=>st.symbol === symbol);
+            if (!stock) {
+                setQuote(null);
+                return;
+            }
+            setQuoteLoading(true);
+            const { data, error } = await __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$lib$2f$supabaseClient$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["supabase"].from('pricebar').select('close, bar_date, bar_time, time_interval').eq('ticker_id', stock.ticker_id).eq('time_interval', 'daily').order('bar_date', {
+                ascending: false
+            }).order('bar_time', {
+                ascending: false
+            }).limit(1).maybeSingle();
+            if (error) {
+                console.error(error);
+                setQuote(null);
+            } else if (data && data.close != null) {
+                setQuote(Number(data.close));
+            } else {
+                setQuote(null);
+            }
+            setQuoteLoading(false);
+        };
+        void loadQuote();
+    }, [
+        symbol,
+        stocks
+    ]);
     const posMap = (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useMemo"])(()=>{
         const map = new Map();
         portfolio.positions.forEach((p)=>map.set(p.symbol, p));
@@ -135,63 +337,121 @@ function TradePage() {
     }, [
         portfolio.positions
     ]);
-    const quote = (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useMemo"])(()=>getQuote(symbol.toUpperCase()), [
-        symbol
-    ]);
-    function upsertPosition(s, fillPrice, qtyDelta) {
-        const next = {
-            ...portfolio
-        };
-        const existing = next.positions.find((p)=>p.symbol === s);
-        if (!existing) {
-            if (qtyDelta > 0) next.positions.push({
-                symbol: s,
-                qty: qtyDelta,
-                avgPrice: fillPrice
-            });
-        } else {
-            const newQty = existing.qty + qtyDelta;
-            if (newQty <= 0) {
-                next.positions = next.positions.filter((p)=>p.symbol !== s);
-            } else if (qtyDelta > 0) {
-                existing.avgPrice = (existing.avgPrice * existing.qty + fillPrice * qtyDelta) / newQty;
-                existing.qty = newQty;
-            } else {
-                existing.qty = newQty;
+    /** Market-hours + holiday gating effect */ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useEffect"])(()=>{
+        if (!mounted) return;
+        const checkMarket = async ()=>{
+            try {
+                const { date, time, dayOfWeek, hour, minute } = getNowInET();
+                const nowMinutes = hour * 60 + minute;
+                // 1) Holiday / calendar check
+                const { data: calRow, error: calErr } = await __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$lib$2f$supabaseClient$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["supabase"].from('marketcalendar').select('holiday_name, market_status').eq('date', date).maybeSingle();
+                if (calErr) {
+                    console.error('marketcalendar lookup error:', calErr);
+                }
+                if (calRow && calRow.market_status === 'Closed') {
+                    setIsClosed(true);
+                    setMarketStatusMsg(calRow.holiday_name ? `Market closed today for ${calRow.holiday_name}.` : 'Market closed today.');
+                    return;
+                }
+                // 2) Regular hours from markethours table
+                const { data: hoursRow, error: hoursErr } = await __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$lib$2f$supabaseClient$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["supabase"].from('markethours').select('open_time, close_time, pre_market_start, after_hours_end, is_active, effective_date').eq('day_of_week', dayOfWeek).eq('is_active', true).lte('effective_date', date).order('effective_date', {
+                    ascending: false
+                }).limit(1).maybeSingle();
+                if (hoursErr) {
+                    console.error('markethours lookup error:', hoursErr);
+                    setIsClosed(true);
+                    setMarketStatusMsg('Could not load market hours configuration.');
+                    return;
+                }
+                if (!hoursRow) {
+                    // weekend or no schedule
+                    setIsClosed(true);
+                    setMarketStatusMsg('Market is closed today.');
+                    return;
+                }
+                const startMinutes = timeToMinutes(hoursRow.pre_market_start) ?? timeToMinutes(hoursRow.open_time);
+                const endMinutes = timeToMinutes(hoursRow.after_hours_end) ?? timeToMinutes(hoursRow.close_time);
+                if (startMinutes == null || endMinutes == null || nowMinutes < startMinutes || nowMinutes > endMinutes) {
+                    setIsClosed(true);
+                    setMarketStatusMsg('Trading is currently outside configured market hours.');
+                } else {
+                    setIsClosed(false);
+                    setMarketStatusMsg(null);
+                }
+            } catch (err) {
+                console.error('market hours check error', err);
+                setIsClosed(false);
+                setMarketStatusMsg(null);
             }
-        }
-        setPortfolio(next);
-        writeJSON('demo_portfolio', next);
+        };
+        void checkMarket();
+    }, [
+        mounted
+    ]);
+    function updatePortfolio(newCash, s, fillPrice, qtyDelta) {
+        setPortfolio((prev)=>{
+            const next = {
+                cash: newCash,
+                positions: prev.positions.map((p)=>({
+                        ...p
+                    }))
+            };
+            const existing = next.positions.find((p)=>p.symbol === s);
+            if (!existing) {
+                if (qtyDelta > 0) {
+                    next.positions.push({
+                        symbol: s,
+                        qty: qtyDelta,
+                        avgPrice: fillPrice
+                    });
+                }
+            } else {
+                const newQty = existing.qty + qtyDelta;
+                if (newQty <= 0) {
+                    next.positions = next.positions.filter((p)=>p.symbol !== s);
+                } else if (qtyDelta > 0) {
+                    existing.avgPrice = (existing.avgPrice * existing.qty + fillPrice * qtyDelta) / newQty;
+                    existing.qty = newQty;
+                } else {
+                    existing.qty = newQty;
+                }
+            }
+            writeJSON('demo_portfolio', next);
+            return next;
+        });
     }
-    function placeOrder() {
+    async function placeOrder() {
+        if (!account) {
+            setMessage('Trading account not loaded.');
+            return;
+        }
+        if (isClosed) {
+            setMessage(marketStatusMsg || 'Trading is currently closed. Please return during market hours.');
+            return;
+        }
         const s = symbol.trim().toUpperCase();
-        if (!/^[A-Z]{1,6}$/.test(s)) {
-            setMessage('Enter a valid stock symbol (A–Z, up to 6).');
+        if (!s) {
+            setMessage('Select a symbol.');
             return;
         }
         if (!Number.isFinite(qty) || qty <= 0) {
             setMessage('Quantity must be a positive number.');
             return;
         }
-        const current = ensurePortfolio();
-        const px = type === 'MARKET' ? quote : Number(limitPrice);
-        if (!Number.isFinite(px) || px <= 0) {
-            setMessage('Enter a valid price.');
+        if (quote == null || !Number.isFinite(quote) || quote <= 0) {
+            setMessage('No price data available for this symbol.');
             return;
         }
-        if (type === 'LIMIT') {
-            if (side === 'BUY' && px < quote) {
-                setMessage(`Limit not reached. Current ~ ${fmt(quote)}.`);
-                return;
-            }
-            if (side === 'SELL' && px > quote) {
-                setMessage(`Limit not reached. Current ~ ${fmt(quote)}.`);
-                return;
-            }
+        const stock = stocks.find((st)=>st.symbol === s);
+        if (!stock) {
+            setMessage('That symbol is not available to trade.');
+            return;
         }
-        const cost = Number((px * qty).toFixed(2));
-        if (side === 'BUY' && cost > current.cash) {
-            setMessage('Insufficient cash for this order.');
+        const px = quote;
+        const amt = Number((px * qty).toFixed(2));
+        const currentBalance = Number(account.balance);
+        if (side === 'BUY' && amt > currentBalance) {
+            setMessage(`Insufficient funds. You have ${fmt(currentBalance)}.`);
             return;
         }
         if (side === 'SELL') {
@@ -201,37 +461,139 @@ function TradePage() {
                 return;
             }
         }
-        const fillPrice = px;
-        const next = JSON.parse(JSON.stringify(current));
-        if (side === 'BUY') next.cash = Number((next.cash - cost).toFixed(2));
-        if (side === 'SELL') next.cash = Number((next.cash + cost).toFixed(2));
-        setPortfolio(next);
-        writeJSON('demo_portfolio', next);
-        upsertPosition(s, fillPrice, side === 'BUY' ? qty : -qty);
-        const order = {
-            id: crypto.randomUUID(),
-            time: new Date().toISOString(),
-            symbol: s,
-            side,
-            type,
-            qty,
-            price: type === 'LIMIT' ? px : undefined,
-            fillPrice
-        };
-        const nextOrders = [
-            order,
-            ...orders
-        ].slice(0, 100);
-        setOrders(nextOrders);
-        writeJSON('demo_orders', nextOrders);
-        setMessage(`${side} ${qty} ${s} @ ${fmt(fillPrice)} filled.`);
+        try {
+            setMessage('Submitting order...');
+            // 1) insert into orders
+            const { data: orderRow, error: orderError } = await __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$lib$2f$supabaseClient$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["supabase"].from('orders').insert({
+                account_id: account.account_id,
+                ticker_id: stock.ticker_id,
+                order_type: 'Market',
+                side: side === 'BUY' ? 'Buy' : 'Sell',
+                quantity: qty,
+                price: px,
+                status: 'FILLED',
+                order_date: new Date().toISOString()
+            }).select().single();
+            if (orderError || !orderRow) {
+                console.error('Order insert error:', orderError);
+                setMessage(`Could not place order: ${orderError?.message ?? 'Unknown error'}`);
+                return;
+            }
+            // 2) insert into trade
+            const { error: tradeError } = await __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$lib$2f$supabaseClient$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["supabase"].from('trade').insert({
+                order_id: orderRow.order_id,
+                ticker_id: stock.ticker_id,
+                execution_price: px,
+                quantity: qty,
+                trade_date: new Date().toISOString(),
+                commission: 0,
+                settlement_date: new Date()
+            });
+            if (tradeError) {
+                console.error('Trade insert error:', tradeError);
+                setMessage('Order created but trade record failed.');
+                return;
+            }
+            // 3) update account balance
+            const newBalance = side === 'BUY' ? Number((currentBalance - amt).toFixed(2)) : Number((currentBalance + amt).toFixed(2));
+            const { error: acctUpdateError } = await __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$lib$2f$supabaseClient$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["supabase"].from('account').update({
+                balance: newBalance,
+                available_balance: newBalance
+            }).eq('account_id', account.account_id);
+            if (acctUpdateError) {
+                console.error('Account update error:', acctUpdateError);
+                setMessage('Trade executed but failed to update balance.');
+                return;
+            }
+            // 4) insert into transaction
+            const { error: txError } = await __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$lib$2f$supabaseClient$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["supabase"].from('transaction').insert({
+                account_id: account.account_id,
+                transaction_type: side === 'BUY' ? 'Buy' : 'Sell',
+                amount: amt,
+                balance_before: currentBalance,
+                balance_after: newBalance,
+                transaction_date: new Date().toISOString(),
+                status: 'COMPLETED'
+            });
+            if (txError) {
+                console.error('Transaction insert error:', txError);
+            }
+            // 5) 🔹 UPDATE / INSERT INTO position TABLE
+            await upsertPositionRow(account.account_id, stock.ticker_id, side, qty, px);
+            // update local account + portfolio + UI orders (still tracked client-side)
+            setAccount((prev)=>prev ? {
+                    ...prev,
+                    balance: newBalance
+                } : prev);
+            updatePortfolio(newBalance, s, px, side === 'BUY' ? qty : -qty);
+            const uiOrder = {
+                id: orderRow.order_id.toString(),
+                time: orderRow.order_date,
+                symbol: s,
+                side,
+                type: ORDER_TYPE,
+                qty,
+                fillPrice: px
+            };
+            const nextOrders = [
+                uiOrder,
+                ...orders
+            ].slice(0, 100);
+            setOrders(nextOrders);
+            writeJSON('demo_orders', nextOrders);
+            setMessage(`${side} ${qty} ${s} @ ${fmt(px)} filled.`);
+            router.refresh(); // refresh navbar balance, etc.
+        } catch (err) {
+            console.error(err);
+            setMessage('Unexpected error while placing order.');
+        }
     }
-    // derived UI helpers
-    const est = (type === 'MARKET' ? quote : limitPrice || 0) * qty;
-    const canSubmit = /^[A-Z]{1,6}$/.test(symbol.trim().toUpperCase()) && Number.isFinite(qty) && qty > 0 && (type === 'MARKET' || Number.isFinite(limitPrice) && limitPrice > 0);
-    // ——— render gates (after hooks)
+    const est = (quote ?? 0) * qty;
+    const canSubmit = !!symbol && Number.isFinite(qty) && qty > 0 && quote != null && quote > 0 && !quoteLoading;
+    // render gates
     if (!mounted) return null;
     if (!authed) return null;
+    if (loading) {
+        return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("main", {
+            className: "trade container",
+            style: {
+                paddingTop: 24,
+                paddingBottom: 24
+            },
+            children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
+                children: "Loading trading data..."
+            }, void 0, false, {
+                fileName: "[project]/ift-401/app/trade/page.tsx",
+                lineNumber: 737,
+                columnNumber: 9
+            }, this)
+        }, void 0, false, {
+            fileName: "[project]/ift-401/app/trade/page.tsx",
+            lineNumber: 733,
+            columnNumber: 7
+        }, this);
+    }
+    if (loadError || !account) {
+        return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("main", {
+            className: "trade container",
+            style: {
+                paddingTop: 24,
+                paddingBottom: 24
+            },
+            children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
+                className: "trade__alert is-error",
+                children: loadError ?? 'No trading account found.'
+            }, void 0, false, {
+                fileName: "[project]/ift-401/app/trade/page.tsx",
+                lineNumber: 748,
+                columnNumber: 9
+            }, this)
+        }, void 0, false, {
+            fileName: "[project]/ift-401/app/trade/page.tsx",
+            lineNumber: 744,
+            columnNumber: 7
+        }, this);
+    }
     return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("main", {
         className: "trade container",
         style: {
@@ -241,57 +603,54 @@ function TradePage() {
         children: [
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                 className: "pageheader",
-                children: [
-                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                        children: [
-                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("h1", {
-                                className: "stocks__title",
-                                children: "Trade"
-                            }, void 0, false, {
-                                fileName: "[project]/ift-401/app/trade/page.tsx",
-                                lineNumber: 180,
-                                columnNumber: 11
-                            }, this),
-                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
-                                className: "stocks__sub",
-                                children: "Place market or limit orders in this demo environment."
-                            }, void 0, false, {
-                                fileName: "[project]/ift-401/app/trade/page.tsx",
-                                lineNumber: 181,
-                                columnNumber: 11
-                            }, this)
-                        ]
-                    }, void 0, true, {
-                        fileName: "[project]/ift-401/app/trade/page.tsx",
-                        lineNumber: 179,
-                        columnNumber: 9
-                    }, this),
-                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                        className: "header-actions",
-                        children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
-                            className: "badge badge--ok",
-                            children: "Demo only"
+                children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                    children: [
+                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("h1", {
+                            className: "stocks__title",
+                            children: "Trade"
                         }, void 0, false, {
                             fileName: "[project]/ift-401/app/trade/page.tsx",
-                            lineNumber: 184,
+                            lineNumber: 762,
+                            columnNumber: 11
+                        }, this),
+                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
+                            className: "stocks__sub",
+                            children: "Buy or sell stocks with ease."
+                        }, void 0, false, {
+                            fileName: "[project]/ift-401/app/trade/page.tsx",
+                            lineNumber: 763,
                             columnNumber: 11
                         }, this)
-                    }, void 0, false, {
-                        fileName: "[project]/ift-401/app/trade/page.tsx",
-                        lineNumber: 183,
-                        columnNumber: 9
-                    }, this)
-                ]
-            }, void 0, true, {
+                    ]
+                }, void 0, true, {
+                    fileName: "[project]/ift-401/app/trade/page.tsx",
+                    lineNumber: 761,
+                    columnNumber: 9
+                }, this)
+            }, void 0, false, {
                 fileName: "[project]/ift-401/app/trade/page.tsx",
-                lineNumber: 178,
+                lineNumber: 760,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                className: "grid",
+                className: isClosed ? 'trade-disabled' : '',
                 children: [
+                    isClosed && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                        className: "market-closed-banner",
+                        children: marketStatusMsg ?? 'Trading is currently closed. Please return during normal market hours.'
+                    }, void 0, false, {
+                        fileName: "[project]/ift-401/app/trade/page.tsx",
+                        lineNumber: 770,
+                        columnNumber: 11
+                    }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("section", {
                         className: "card",
+                        style: {
+                            marginBottom: 24,
+                            background: '#060816',
+                            borderRadius: 20,
+                            border: '1px solid rgba(255,255,255,0.05)'
+                        },
                         children: [
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                 className: "pillgroup",
@@ -308,7 +667,7 @@ function TradePage() {
                                         children: "Buy"
                                     }, void 0, false, {
                                         fileName: "[project]/ift-401/app/trade/page.tsx",
-                                        lineNumber: 193,
+                                        lineNumber: 787,
                                         columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -321,20 +680,20 @@ function TradePage() {
                                         children: "Sell"
                                     }, void 0, false, {
                                         fileName: "[project]/ift-401/app/trade/page.tsx",
-                                        lineNumber: 200,
+                                        lineNumber: 797,
                                         columnNumber: 13
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/ift-401/app/trade/page.tsx",
-                                lineNumber: 192,
+                                lineNumber: 786,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("form", {
                                 className: "auth__form",
                                 onSubmit: (e)=>{
                                     e.preventDefault();
-                                    placeOrder();
+                                    void placeOrder();
                                 },
                                 children: [
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -342,51 +701,50 @@ function TradePage() {
                                         children: [
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("label", {
                                                 className: "field",
-                                                style: {
-                                                    position: 'relative'
-                                                },
                                                 children: [
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                                                         className: "field__label",
                                                         children: "Symbol"
                                                     }, void 0, false, {
                                                         fileName: "[project]/ift-401/app/trade/page.tsx",
-                                                        lineNumber: 213,
+                                                        lineNumber: 818,
                                                         columnNumber: 17
                                                     }, this),
-                                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
+                                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("select", {
                                                         className: "field__input",
-                                                        list: "symbols",
                                                         value: symbol,
                                                         onChange: (e)=>{
-                                                            setSymbol(e.target.value.toUpperCase());
+                                                            setSymbol(e.target.value);
                                                             setMessage('');
                                                         },
-                                                        placeholder: "AAPL",
-                                                        autoCapitalize: "characters"
-                                                    }, void 0, false, {
-                                                        fileName: "[project]/ift-401/app/trade/page.tsx",
-                                                        lineNumber: 214,
-                                                        columnNumber: 17
-                                                    }, this),
-                                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("datalist", {
-                                                        id: "symbols",
-                                                        children: SYMBOLS.map((sym)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("option", {
-                                                                value: sym
-                                                            }, sym, false, {
+                                                        disabled: isClosed,
+                                                        children: [
+                                                            stocks.length === 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("option", {
+                                                                value: "",
+                                                                children: "No tickers available"
+                                                            }, void 0, false, {
                                                                 fileName: "[project]/ift-401/app/trade/page.tsx",
-                                                                lineNumber: 223,
-                                                                columnNumber: 39
-                                                            }, this))
-                                                    }, void 0, false, {
+                                                                lineNumber: 829,
+                                                                columnNumber: 21
+                                                            }, this),
+                                                            stocks.map((st)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("option", {
+                                                                    value: st.symbol,
+                                                                    children: st.company_name ? `${st.symbol} — ${st.company_name}` : st.symbol
+                                                                }, st.ticker_id, false, {
+                                                                    fileName: "[project]/ift-401/app/trade/page.tsx",
+                                                                    lineNumber: 832,
+                                                                    columnNumber: 21
+                                                                }, this))
+                                                        ]
+                                                    }, void 0, true, {
                                                         fileName: "[project]/ift-401/app/trade/page.tsx",
-                                                        lineNumber: 222,
+                                                        lineNumber: 819,
                                                         columnNumber: 17
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/ift-401/app/trade/page.tsx",
-                                                lineNumber: 212,
+                                                lineNumber: 817,
                                                 columnNumber: 15
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("label", {
@@ -397,7 +755,7 @@ function TradePage() {
                                                         children: "Quantity"
                                                     }, void 0, false, {
                                                         fileName: "[project]/ift-401/app/trade/page.tsx",
-                                                        lineNumber: 228,
+                                                        lineNumber: 842,
                                                         columnNumber: 17
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
@@ -410,116 +768,57 @@ function TradePage() {
                                                             setQty(Math.max(1, Number(e.target.value)));
                                                             setMessage('');
                                                         },
-                                                        placeholder: "1"
+                                                        placeholder: "1",
+                                                        disabled: isClosed
                                                     }, void 0, false, {
                                                         fileName: "[project]/ift-401/app/trade/page.tsx",
-                                                        lineNumber: 229,
+                                                        lineNumber: 843,
                                                         columnNumber: 17
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/ift-401/app/trade/page.tsx",
-                                                lineNumber: 227,
+                                                lineNumber: 841,
                                                 columnNumber: 15
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/ift-401/app/trade/page.tsx",
-                                        lineNumber: 210,
+                                        lineNumber: 816,
                                         columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                         className: "fieldrow",
-                                        children: [
-                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("label", {
-                                                className: "field",
-                                                children: [
-                                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
-                                                        className: "field__label",
-                                                        children: "Order type"
-                                                    }, void 0, false, {
-                                                        fileName: "[project]/ift-401/app/trade/page.tsx",
-                                                        lineNumber: 244,
-                                                        columnNumber: 17
-                                                    }, this),
-                                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                                        className: "pillgroup",
-                                                        children: [
-                                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
-                                                                type: "button",
-                                                                className: `pillbtn ${type === 'MARKET' ? 'is-active' : ''}`,
-                                                                onClick: ()=>{
-                                                                    setType('MARKET');
-                                                                    setMessage('');
-                                                                },
-                                                                children: "Market"
-                                                            }, void 0, false, {
-                                                                fileName: "[project]/ift-401/app/trade/page.tsx",
-                                                                lineNumber: 246,
-                                                                columnNumber: 19
-                                                            }, this),
-                                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
-                                                                type: "button",
-                                                                className: `pillbtn ${type === 'LIMIT' ? 'is-active' : ''}`,
-                                                                onClick: ()=>{
-                                                                    setType('LIMIT');
-                                                                    setMessage('');
-                                                                },
-                                                                children: "Limit"
-                                                            }, void 0, false, {
-                                                                fileName: "[project]/ift-401/app/trade/page.tsx",
-                                                                lineNumber: 253,
-                                                                columnNumber: 19
-                                                            }, this)
-                                                        ]
-                                                    }, void 0, true, {
-                                                        fileName: "[project]/ift-401/app/trade/page.tsx",
-                                                        lineNumber: 245,
-                                                        columnNumber: 17
-                                                    }, this)
-                                                ]
-                                            }, void 0, true, {
-                                                fileName: "[project]/ift-401/app/trade/page.tsx",
-                                                lineNumber: 243,
-                                                columnNumber: 15
-                                            }, this),
-                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("label", {
-                                                className: "field",
-                                                children: [
-                                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
-                                                        className: "field__label",
-                                                        children: [
-                                                            "Price ",
-                                                            type === 'MARKET' ? '(quote)' : '(limit)'
-                                                        ]
-                                                    }, void 0, true, {
-                                                        fileName: "[project]/ift-401/app/trade/page.tsx",
-                                                        lineNumber: 264,
-                                                        columnNumber: 17
-                                                    }, this),
-                                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
-                                                        className: "field__input",
-                                                        type: "number",
-                                                        step: "0.01",
-                                                        value: type === 'MARKET' ? quote : limitPrice,
-                                                        onChange: (e)=>setLimitPrice(Number(e.target.value)),
-                                                        placeholder: "0.00",
-                                                        disabled: type === 'MARKET'
-                                                    }, void 0, false, {
-                                                        fileName: "[project]/ift-401/app/trade/page.tsx",
-                                                        lineNumber: 265,
-                                                        columnNumber: 17
-                                                    }, this)
-                                                ]
-                                            }, void 0, true, {
-                                                fileName: "[project]/ift-401/app/trade/page.tsx",
-                                                lineNumber: 263,
-                                                columnNumber: 15
-                                            }, this)
-                                        ]
-                                    }, void 0, true, {
+                                        children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("label", {
+                                            className: "field",
+                                            children: [
+                                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                                                    className: "field__label",
+                                                    children: "Price (latest close from pricebar)"
+                                                }, void 0, false, {
+                                                    fileName: "[project]/ift-401/app/trade/page.tsx",
+                                                    lineNumber: 861,
+                                                    columnNumber: 17
+                                                }, this),
+                                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
+                                                    className: "field__input",
+                                                    type: "text",
+                                                    value: quoteLoading ? 'Loading...' : quote != null ? fmt(quote) : 'No price data',
+                                                    readOnly: true
+                                                }, void 0, false, {
+                                                    fileName: "[project]/ift-401/app/trade/page.tsx",
+                                                    lineNumber: 864,
+                                                    columnNumber: 17
+                                                }, this)
+                                            ]
+                                        }, void 0, true, {
+                                            fileName: "[project]/ift-401/app/trade/page.tsx",
+                                            lineNumber: 860,
+                                            columnNumber: 15
+                                        }, this)
+                                    }, void 0, false, {
                                         fileName: "[project]/ift-401/app/trade/page.tsx",
-                                        lineNumber: 242,
+                                        lineNumber: 859,
                                         columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -530,35 +829,42 @@ function TradePage() {
                                                 children: [
                                                     "Est. ",
                                                     side === 'BUY' ? 'Cost' : 'Proceeds',
-                                                    ": ",
+                                                    ":",
+                                                    ' ',
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("strong", {
                                                         children: fmt(est || 0)
                                                     }, void 0, false, {
                                                         fileName: "[project]/ift-401/app/trade/page.tsx",
-                                                        lineNumber: 279,
-                                                        columnNumber: 83
+                                                        lineNumber: 882,
+                                                        columnNumber: 17
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/ift-401/app/trade/page.tsx",
-                                                lineNumber: 279,
+                                                lineNumber: 880,
                                                 columnNumber: 15
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                                 className: "badge",
                                                 children: [
-                                                    "Quote: ",
-                                                    fmt(quote)
+                                                    "Cash: ",
+                                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("strong", {
+                                                        children: fmt(account.balance)
+                                                    }, void 0, false, {
+                                                        fileName: "[project]/ift-401/app/trade/page.tsx",
+                                                        lineNumber: 885,
+                                                        columnNumber: 23
+                                                    }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/ift-401/app/trade/page.tsx",
-                                                lineNumber: 280,
+                                                lineNumber: 884,
                                                 columnNumber: 15
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/ift-401/app/trade/page.tsx",
-                                        lineNumber: 278,
+                                        lineNumber: 879,
                                         columnNumber: 13
                                     }, this),
                                     message && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -569,7 +875,7 @@ function TradePage() {
                                         children: message
                                     }, void 0, false, {
                                         fileName: "[project]/ift-401/app/trade/page.tsx",
-                                        lineNumber: 284,
+                                        lineNumber: 890,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -578,352 +884,41 @@ function TradePage() {
                                         style: {
                                             width: '100%'
                                         },
-                                        disabled: !canSubmit,
-                                        title: !canSubmit ? 'Enter a valid symbol, quantity, and price' : undefined,
+                                        disabled: !canSubmit || stocks.length === 0 || isClosed,
                                         children: [
                                             side === 'BUY' ? 'Buy' : 'Sell',
                                             " ",
                                             qty,
-                                            " ",
-                                            symbol.toUpperCase()
+                                            ' ',
+                                            symbol ? symbol.toUpperCase() : ''
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/ift-401/app/trade/page.tsx",
-                                        lineNumber: 294,
+                                        lineNumber: 900,
                                         columnNumber: 13
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/ift-401/app/trade/page.tsx",
-                                lineNumber: 209,
+                                lineNumber: 809,
                                 columnNumber: 11
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/ift-401/app/trade/page.tsx",
-                        lineNumber: 190,
-                        columnNumber: 9
-                    }, this),
-                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("aside", {
-                        className: "card",
-                        children: [
-                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("h3", {
-                                style: {
-                                    marginTop: 0,
-                                    marginBottom: 8
-                                },
-                                children: "Account"
-                            }, void 0, false, {
-                                fileName: "[project]/ift-401/app/trade/page.tsx",
-                                lineNumber: 308,
-                                columnNumber: 11
-                            }, this),
-                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                className: "sd__grid",
-                                style: {
-                                    marginBottom: 12
-                                },
-                                children: [
-                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                        className: "sd__cell",
-                                        children: [
-                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                                className: "sd__label",
-                                                children: "Cash"
-                                            }, void 0, false, {
-                                                fileName: "[project]/ift-401/app/trade/page.tsx",
-                                                lineNumber: 310,
-                                                columnNumber: 39
-                                            }, this),
-                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                                className: "sd__value",
-                                                children: fmt(portfolio.cash)
-                                            }, void 0, false, {
-                                                fileName: "[project]/ift-401/app/trade/page.tsx",
-                                                lineNumber: 310,
-                                                columnNumber: 76
-                                            }, this)
-                                        ]
-                                    }, void 0, true, {
-                                        fileName: "[project]/ift-401/app/trade/page.tsx",
-                                        lineNumber: 310,
-                                        columnNumber: 13
-                                    }, this),
-                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                        className: "sd__cell",
-                                        children: [
-                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                                className: "sd__label",
-                                                children: "Positions"
-                                            }, void 0, false, {
-                                                fileName: "[project]/ift-401/app/trade/page.tsx",
-                                                lineNumber: 311,
-                                                columnNumber: 39
-                                            }, this),
-                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                                className: "sd__value",
-                                                children: portfolio.positions.length
-                                            }, void 0, false, {
-                                                fileName: "[project]/ift-401/app/trade/page.tsx",
-                                                lineNumber: 311,
-                                                columnNumber: 81
-                                            }, this)
-                                        ]
-                                    }, void 0, true, {
-                                        fileName: "[project]/ift-401/app/trade/page.tsx",
-                                        lineNumber: 311,
-                                        columnNumber: 13
-                                    }, this),
-                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                        className: "sd__cell",
-                                        children: [
-                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                                className: "sd__label",
-                                                children: "Buying Power"
-                                            }, void 0, false, {
-                                                fileName: "[project]/ift-401/app/trade/page.tsx",
-                                                lineNumber: 312,
-                                                columnNumber: 39
-                                            }, this),
-                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                                className: "sd__value",
-                                                children: fmt(portfolio.cash)
-                                            }, void 0, false, {
-                                                fileName: "[project]/ift-401/app/trade/page.tsx",
-                                                lineNumber: 312,
-                                                columnNumber: 84
-                                            }, this)
-                                        ]
-                                    }, void 0, true, {
-                                        fileName: "[project]/ift-401/app/trade/page.tsx",
-                                        lineNumber: 312,
-                                        columnNumber: 13
-                                    }, this)
-                                ]
-                            }, void 0, true, {
-                                fileName: "[project]/ift-401/app/trade/page.tsx",
-                                lineNumber: 309,
-                                columnNumber: 11
-                            }, this),
-                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("h4", {
-                                style: {
-                                    margin: '8px 0'
-                                },
-                                children: "Positions"
-                            }, void 0, false, {
-                                fileName: "[project]/ift-401/app/trade/page.tsx",
-                                lineNumber: 315,
-                                columnNumber: 11
-                            }, this),
-                            portfolio.positions.length === 0 ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                className: "muted",
-                                children: "No positions yet."
-                            }, void 0, false, {
-                                fileName: "[project]/ift-401/app/trade/page.tsx",
-                                lineNumber: 317,
-                                columnNumber: 13
-                            }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("ul", {
-                                className: "table__body",
-                                style: {
-                                    marginTop: 6
-                                },
-                                children: portfolio.positions.map((p)=>{
-                                    const mark = getQuote(p.symbol);
-                                    const pnl = (mark - p.avgPrice) * p.qty;
-                                    const cls = pnl >= 0 ? 'num is-up' : 'num is-down';
-                                    return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("li", {
-                                        className: "row",
-                                        style: {
-                                            gridTemplateColumns: '1fr 1fr 1fr 1fr'
-                                        },
-                                        children: [
-                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                                className: "name",
-                                                children: [
-                                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("strong", {
-                                                        children: p.symbol
-                                                    }, void 0, false, {
-                                                        fileName: "[project]/ift-401/app/trade/page.tsx",
-                                                        lineNumber: 326,
-                                                        columnNumber: 43
-                                                    }, this),
-                                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
-                                                        className: "symbol",
-                                                        children: [
-                                                            "x",
-                                                            p.qty
-                                                        ]
-                                                    }, void 0, true, {
-                                                        fileName: "[project]/ift-401/app/trade/page.tsx",
-                                                        lineNumber: 326,
-                                                        columnNumber: 70
-                                                    }, this)
-                                                ]
-                                            }, void 0, true, {
-                                                fileName: "[project]/ift-401/app/trade/page.tsx",
-                                                lineNumber: 326,
-                                                columnNumber: 21
-                                            }, this),
-                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                                className: "num",
-                                                children: fmt(p.avgPrice)
-                                            }, void 0, false, {
-                                                fileName: "[project]/ift-401/app/trade/page.tsx",
-                                                lineNumber: 327,
-                                                columnNumber: 21
-                                            }, this),
-                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                                className: "num",
-                                                children: fmt(mark)
-                                            }, void 0, false, {
-                                                fileName: "[project]/ift-401/app/trade/page.tsx",
-                                                lineNumber: 328,
-                                                columnNumber: 21
-                                            }, this),
-                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                                className: cls,
-                                                children: [
-                                                    pnl >= 0 ? '+' : '',
-                                                    pnl.toFixed(2)
-                                                ]
-                                            }, void 0, true, {
-                                                fileName: "[project]/ift-401/app/trade/page.tsx",
-                                                lineNumber: 329,
-                                                columnNumber: 21
-                                            }, this)
-                                        ]
-                                    }, p.symbol, true, {
-                                        fileName: "[project]/ift-401/app/trade/page.tsx",
-                                        lineNumber: 325,
-                                        columnNumber: 19
-                                    }, this);
-                                })
-                            }, void 0, false, {
-                                fileName: "[project]/ift-401/app/trade/page.tsx",
-                                lineNumber: 319,
-                                columnNumber: 13
-                            }, this)
-                        ]
-                    }, void 0, true, {
-                        fileName: "[project]/ift-401/app/trade/page.tsx",
-                        lineNumber: 307,
+                        lineNumber: 777,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/ift-401/app/trade/page.tsx",
-                lineNumber: 188,
-                columnNumber: 7
-            }, this),
-            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("section", {
-                className: "card spaced",
-                children: [
-                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("h3", {
-                        style: {
-                            marginTop: 0,
-                            marginBottom: 8
-                        },
-                        children: "Recent orders"
-                    }, void 0, false, {
-                        fileName: "[project]/ift-401/app/trade/page.tsx",
-                        lineNumber: 340,
-                        columnNumber: 9
-                    }, this),
-                    orders.length === 0 ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                        className: "muted",
-                        children: "No orders yet."
-                    }, void 0, false, {
-                        fileName: "[project]/ift-401/app/trade/page.tsx",
-                        lineNumber: 342,
-                        columnNumber: 11
-                    }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("ul", {
-                        className: "table__body",
-                        children: orders.map((o)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("li", {
-                                className: "row",
-                                style: {
-                                    gridTemplateColumns: '1.2fr 1fr 1fr 1fr 1fr'
-                                },
-                                children: [
-                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                        className: "name",
-                                        children: [
-                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("strong", {
-                                                children: o.symbol
-                                            }, void 0, false, {
-                                                fileName: "[project]/ift-401/app/trade/page.tsx",
-                                                lineNumber: 348,
-                                                columnNumber: 19
-                                            }, this),
-                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
-                                                className: "symbol",
-                                                children: new Date(o.time).toLocaleString()
-                                            }, void 0, false, {
-                                                fileName: "[project]/ift-401/app/trade/page.tsx",
-                                                lineNumber: 349,
-                                                columnNumber: 19
-                                            }, this)
-                                        ]
-                                    }, void 0, true, {
-                                        fileName: "[project]/ift-401/app/trade/page.tsx",
-                                        lineNumber: 347,
-                                        columnNumber: 17
-                                    }, this),
-                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                        className: "num",
-                                        children: o.side
-                                    }, void 0, false, {
-                                        fileName: "[project]/ift-401/app/trade/page.tsx",
-                                        lineNumber: 351,
-                                        columnNumber: 17
-                                    }, this),
-                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                        className: "num",
-                                        children: [
-                                            o.type,
-                                            o.price ? ` (${fmt(o.price)})` : ''
-                                        ]
-                                    }, void 0, true, {
-                                        fileName: "[project]/ift-401/app/trade/page.tsx",
-                                        lineNumber: 352,
-                                        columnNumber: 17
-                                    }, this),
-                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                        className: "num",
-                                        children: o.qty
-                                    }, void 0, false, {
-                                        fileName: "[project]/ift-401/app/trade/page.tsx",
-                                        lineNumber: 353,
-                                        columnNumber: 17
-                                    }, this),
-                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$ift$2d$401$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                        className: "num",
-                                        children: fmt(o.fillPrice)
-                                    }, void 0, false, {
-                                        fileName: "[project]/ift-401/app/trade/page.tsx",
-                                        lineNumber: 354,
-                                        columnNumber: 17
-                                    }, this)
-                                ]
-                            }, o.id, true, {
-                                fileName: "[project]/ift-401/app/trade/page.tsx",
-                                lineNumber: 346,
-                                columnNumber: 15
-                            }, this))
-                    }, void 0, false, {
-                        fileName: "[project]/ift-401/app/trade/page.tsx",
-                        lineNumber: 344,
-                        columnNumber: 11
-                    }, this)
-                ]
-            }, void 0, true, {
-                fileName: "[project]/ift-401/app/trade/page.tsx",
-                lineNumber: 339,
+                lineNumber: 768,
                 columnNumber: 7
             }, this)
         ]
     }, void 0, true, {
         fileName: "[project]/ift-401/app/trade/page.tsx",
-        lineNumber: 177,
+        lineNumber: 756,
         columnNumber: 5
     }, this);
 }

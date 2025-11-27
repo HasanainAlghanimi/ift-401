@@ -1,0 +1,10 @@
+var R=require("../../../chunks/[turbopack]_runtime.js")("server/app/api/stocks/route.js")
+R.c("server/chunks/65dd8_next_36724730._.js")
+R.c("server/chunks/65dd8_@supabase_realtime-js_dist_module_f8da8236._.js")
+R.c("server/chunks/65dd8_@supabase_storage-js_dist_module_370cd11b._.js")
+R.c("server/chunks/65dd8_@supabase_auth-js_dist_module_b268e591._.js")
+R.c("server/chunks/65dd8_85526a1a._.js")
+R.c("server/chunks/[root-of-the-server]__47ae057a._.js")
+R.m("[project]/ift-401/.next-internal/server/app/api/stocks/route/actions.js [app-rsc] (server actions loader, ecmascript)")
+R.m("[project]/ift-401/node_modules/next/dist/esm/build/templates/app-route.js { INNER_APP_ROUTE => \"[project]/ift-401/app/api/stocks/route.ts [app-route] (ecmascript)\" } [app-route] (ecmascript)")
+module.exports=R.m("[project]/ift-401/node_modules/next/dist/esm/build/templates/app-route.js { INNER_APP_ROUTE => \"[project]/ift-401/app/api/stocks/route.ts [app-route] (ecmascript)\" } [app-route] (ecmascript)").exports
